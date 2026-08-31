@@ -1,85 +1,88 @@
 """
 Универсальный парсер выгрузок из 1С.
 Поддерживает разные форматы: продажи, остатки, счета.
-Автопоиск заголовков по ключевым словам.
+Автопоиск заголовков по ключевым словам + fallback на первую строку.
 """
 import pandas as pd
 import re
 from pathlib import Path
 from typing import Optional
-from dataclasses import dataclass, field
 
 
 class ParseError(Exception):
     pass
 
 
-@dataclass
-class ParsedData:
-    """Результат парсинга одного Excel-файла."""
-    filename: str
-    raw: pd.DataFrame
-    headers: dict[int, str] = field(default_factory=dict)
-    data_rows: pd.DataFrame = field(default_factory=lambda: pd.DataFrame())
-    meta: dict = field(default_factory=dict)
-
-
-# Ключевые слова для автопоиска заголовков
 HEADER_KEYWORDS = {
-    "client": ["клиент", "покупатель", "контрагент", "договор"],
-    "product": ["номенклатура", "товар", "позиция", "артикул", "наименование"],
+    "client": ["клиент", "покупатель", "контрагент", "договор", "partner"],
+    "product": ["номенклатура", "товар", "позиция", "артикул", "наименование", "номенклатур"],
     "warehouse": ["склад", "место хранения"],
-    "quantity": ["кол-во", "количество", "колво", "шт"],
-    "sum": ["сумма", "выручка", "итого", "стоимость"],
-    "price": ["цена", "цена за", " стоимость за"],
+    "quantity": ["кол-во", "количество", "колво", "шт", "объём", "объем"],
+    "sum": ["сумма", "выручка", "итого", "стоимость", "сумм"],
+    "price": ["цена", "стоимость за"],
     "date": ["дата", "период", "месяц"],
     "start_balance": ["нач.остаток", "начальный остаток", "нач остаток"],
     "income": ["приход", "поступление"],
     "outcome": ["расход", "продажи", "отгрузка"],
     "end_balance": ["кон.остаток", "конечный остаток", "кон остаток"],
     "invoice": ["счёт", "счет", "номер счёта", "номер счета"],
-    "plan": ["план", "план продаж"],
-    "fact": ["факт", "факт продаж"],
-    "days": ["дней", "дней без продаж", "дата последней продажи"],
+    "plan": ["план"],
+    "fact": ["факт"],
 }
 
 
-def find_header_row(df: pd.DataFrame, required_keywords: list[str]) -> Optional[int]:
-    """Ищет строку-заголовок по ключевым словам."""
-    for idx in range(min(20, len(df))):
-        row_text = " ".join(str(v).lower() for v in df.iloc[idx].values if pd.notna(v))
-        matches = sum(1 for kw in required_keywords if kw.lower() in row_text)
+def _find_header_row(df: pd.DataFrame) -> Optional[int]:
+    """Ищет строку-заголовок: ищет строку, где хотя бы 2 колонки содержат ключевые слова."""
+    all_kws = []
+    for kws in HEADER_KEYWORDS.values():
+        all_kws.extend(kws)
+
+    for idx in range(min(30, len(df))):
+        row_vals = [str(v).lower() for v in df.iloc[idx].values if pd.notna(v)]
+        row_text = " ".join(row_vals)
+        matches = sum(1 for kw in all_kws if kw.lower() in row_text)
         if matches >= 2:
             return idx
+
+    # Fallback: ищем строку где много текстовых не-пустых значений (похоже на заголовки)
+    for idx in range(min(10, len(df))):
+        non_empty = sum(1 for v in df.iloc[idx].values if pd.notna(v) and str(v).strip())
+        if non_empty >= 3:
+            vals = [str(v).lower() for v in df.iloc[idx].values if pd.notna(v)]
+            has_number = any(re.search(r'\d', v) for v in vals)
+            has_text = any(len(v) > 2 and not re.search(r'^\d+[.,]?\d*$', v) for v in vals)
+            if has_text and not has_number:
+                return idx
+
     return None
 
 
-def normalize_col(name: str) -> str:
-    """Нормализует имя колонки."""
-    if pd.isna(name):
-        return ""
-    s = str(name).strip().lower()
-    s = re.sub(r'\s+', ' ', s)
-    return s
-
-
-def detect_columns(df: pd.DataFrame) -> dict[str, Optional[int]]:
-    """Автоопределение колонок по ключевым словам."""
-    mapping = {}
-    for col_idx in range(len(df.columns)):
-        val = str(df.iloc[0, col_idx]).lower() if len(df) > 0 else ""
-        for key, keywords in HEADER_KEYWORDS.items():
-            if any(kw in val for kw in keywords):
-                if key not in mapping:
-                    mapping[key] = col_idx
-    return mapping
-
-
-def read_excel_auto(filepath: Path) -> ParsedData:
+def _map_columns(df: pd.DataFrame, target_map: dict) -> dict[str, str]:
     """
-    Универсальное чтение Excel-файла из 1С.
-    Автоматически определяет структуру и извлекает данные.
+    Маппинг колонок df -> целевые имена.
+    target_map = {"client": ["клиент", "покупатель"], "product": ["товар", ...]}
     """
+    col_map = {}
+    used_targets = set()
+
+    for col in df.columns:
+        c = str(col).strip().lower() if pd.notna(col) else ""
+        if not c:
+            continue
+
+        for target, keywords in target_map.items():
+            if target in used_targets:
+                continue
+            if any(kw in c for kw in keywords):
+                col_map[col] = target
+                used_targets.add(target)
+                break
+
+    return col_map
+
+
+def _smart_read(filepath: Path) -> pd.DataFrame:
+    """Читает Excel с автопоиском заголовков."""
     try:
         df_raw = pd.read_excel(filepath, header=None, engine="openpyxl")
     except Exception as e:
@@ -88,126 +91,127 @@ def read_excel_auto(filepath: Path) -> ParsedData:
     if df_raw.empty:
         raise ParseError(f"Файл {filepath.name} пуст")
 
-    result = ParsedData(filename=filepath.name, raw=df_raw)
-
-    # Поиск заголовков
-    all_keywords = []
-    for kws in HEADER_KEYWORDS.values():
-        all_keywords.extend(kws)
-
-    header_row = find_header_row(df_raw, all_keywords)
+    header_row = _find_header_row(df_raw)
 
     if header_row is not None:
-        result.headers = {i: str(df_raw.iloc[header_row, i]) for i in range(len(df_raw.columns))
-                          if pd.notna(df_raw.iloc[header_row, i])}
-        result.data_rows = df_raw.iloc[header_row + 1:].copy()
-        result.data_rows.columns = df_raw.iloc[header_row].values
-        result.data_rows.reset_index(drop=True, inplace=True)
+        headers = []
+        for i in range(len(df_raw.columns)):
+            val = df_raw.iloc[header_row, i]
+            if pd.isna(val) or str(val).strip() == "":
+                headers.append(f"col_{i}")
+            else:
+                headers.append(str(val).strip())
+
+        df = df_raw.iloc[header_row + 1:].copy()
+        df.columns = headers
+        df.reset_index(drop=True, inplace=True)
+        # Убираем полностью пустые строки
+        df = df.dropna(how="all")
+        return df
     else:
-        result.data_rows = df_raw.copy()
+        # Fallback: первая строка как заголовки
+        df = df_raw.copy()
+        headers = []
+        for i in range(len(df.columns)):
+            val = df.iloc[0, i] if len(df) > 0 else f"col_{i}"
+            if pd.isna(val) or str(val).strip() == "":
+                headers.append(f"col_{i}")
+            else:
+                headers.append(str(val).strip())
+        df.columns = headers
+        df = df.iloc[1:].copy()
+        df.reset_index(drop=True, inplace=True)
+        df = df.dropna(how="all")
+        return df
 
-    return result
+
+def _debug_columns(df: pd.DataFrame) -> list[dict]:
+    """Возвращает информацию о колонках для отладки."""
+    info = []
+    for col in df.columns:
+        non_null = df[col].notna().sum()
+        sample = ""
+        for v in df[col].head(3):
+            if pd.notna(v) and str(v).strip():
+                sample = str(v)[:50]
+                break
+        info.append({"name": str(col), "non_null": int(non_null), "sample": sample})
+    return info
 
 
-def read_sales_excel(filepath: Path) -> pd.DataFrame:
+def read_sales_excel(filepath: Path) -> tuple[pd.DataFrame, dict]:
     """
     Чтение выгрузки продаж из 1С.
-    Ожидаемые колонки: Клиент, Товар, Количество, Сумма, Дата (произвольный порядок).
+    Возвращает (DataFrame, debug_info).
     """
-    parsed = read_excel_auto(filepath)
-    df = parsed.data_rows.copy()
+    df = _smart_read(filepath)
 
     if df.empty:
         raise ParseError(f"Нет данных в файле {filepath.name}")
 
-    # Нормализация колонок
-    col_map = {}
-    for col in df.columns:
-        c = normalize_col(col)
-        if any(kw in c for kw in ["клиент", "покупатель", "контрагент"]):
-            col_map[col] = "client"
-        elif any(kw in c for kw in ["номенклатура", "товар", "наименование", "артикул"]):
-            col_map[col] = "product"
-        elif any(kw in c for kw in ["кол-во", "количество", "колво", "шт"]):
-            col_map[col] = "quantity"
-        elif any(kw in c for kw in ["сумма", "выручка", "стоимость"]):
-            col_map[col] = "sum"
-        elif any(kw in c for kw in ["цена"]):
-            col_map[col] = "price"
-        elif any(kw in c for kw in ["дата", "период"]):
-            col_map[col] = "date"
+    debug = {"columns": _debug_columns(df), "rows": len(df), "filename": filepath.name}
 
+    col_map = _map_columns(df, {
+        "client": ["клиент", "покупатель", "контрагент", "договор", "partner"],
+        "product": ["номенклатура", "товар", "наименование", "артикул", "номенклатур"],
+        "quantity": ["кол-во", "количество", "колво", "шт", "объём", "объем"],
+        "sum": ["сумма", "выручка", "стоимость", "сумм"],
+        "price": ["цена", "стоимость за"],
+        "date": ["дата", "период", "месяц"],
+    })
+
+    debug["mapped"] = col_map
     df = df.rename(columns=col_map)
 
-    # Числовые колонки
     for num_col in ["quantity", "sum", "price"]:
         if num_col in df.columns:
             df[num_col] = pd.to_numeric(df[num_col], errors="coerce").fillna(0)
 
-    return df
+    return df, debug
 
 
-def read_stock_excel(filepath: Path) -> pd.DataFrame:
-    """
-    Чтение выгрузки остатков из 1С.
-    Ожидаемые колонки: Склад, Номенклатура, Нач.остаток, Приход, Расход, Кон.остаток.
-    """
-    parsed = read_excel_auto(filepath)
-    df = parsed.data_rows.copy()
-
+def read_stock_excel(filepath: Path) -> tuple[pd.DataFrame, dict]:
+    df = _smart_read(filepath)
     if df.empty:
         raise ParseError(f"Нет данных в файле {filepath.name}")
 
-    col_map = {}
-    for col in df.columns:
-        c = normalize_col(col)
-        if any(kw in c for kw in ["склад"]):
-            col_map[col] = "warehouse"
-        elif any(kw in c for kw in ["номенклатура", "товар", "наименование"]):
-            col_map[col] = "product"
-        elif any(kw in c for kw in ["нач.остаток", "начальный остаток", "нач остаток"]):
-            col_map[col] = "start_balance"
-        elif any(kw in c for kw in ["приход", "поступление"]):
-            col_map[col] = "income"
-        elif any(kw in c for kw in ["расход", "продажи"]):
-            col_map[col] = "outcome"
-        elif any(kw in c for kw in ["кон.остаток", "конечный остаток", "кон остаток"]):
-            col_map[col] = "end_balance"
+    debug = {"columns": _debug_columns(df), "rows": len(df), "filename": filepath.name}
 
+    col_map = _map_columns(df, {
+        "warehouse": ["склад"],
+        "product": ["номенклатура", "товар", "наименование"],
+        "start_balance": ["нач.остаток", "начальный остаток", "нач остаток"],
+        "income": ["приход", "поступление"],
+        "outcome": ["расход", "продажи"],
+        "end_balance": ["кон.остаток", "конечный остаток", "кон остаток"],
+    })
+
+    debug["mapped"] = col_map
     df = df.rename(columns=col_map)
 
     for num_col in ["start_balance", "income", "outcome", "end_balance"]:
         if num_col in df.columns:
             df[num_col] = pd.to_numeric(df[num_col], errors="coerce").fillna(0)
 
-    return df
+    return df, debug
 
 
-def read_invoice_excel(filepath: Path) -> pd.DataFrame:
-    """
-    Чтение выгрузки счетов/дебиторки из 1С.
-    Ожидаемые колонки: Клиент, Номер счёта, Дата, Сумма, Дней просрочки.
-    """
-    parsed = read_excel_auto(filepath)
-    df = parsed.data_rows.copy()
-
+def read_invoice_excel(filepath: Path) -> tuple[pd.DataFrame, dict]:
+    df = _smart_read(filepath)
     if df.empty:
         raise ParseError(f"Нет данных в файле {filepath.name}")
 
-    col_map = {}
-    for col in df.columns:
-        c = normalize_col(col)
-        if any(kw in c for kw in ["клиент", "покупатель", "контрагент"]):
-            col_map[col] = "client"
-        elif any(kw in c for kw in ["счёт", "счет", "номер"]):
-            col_map[col] = "invoice_number"
-        elif any(kw in c for kw in ["дата"]):
-            col_map[col] = "date"
-        elif any(kw in c for kw in ["сумма"]):
-            col_map[col] = "sum"
-        elif any(kw in c for kw in ["дней", "просроч"]):
-            col_map[col] = "overdue_days"
+    debug = {"columns": _debug_columns(df), "rows": len(df), "filename": filepath.name}
 
+    col_map = _map_columns(df, {
+        "client": ["клиент", "покупатель", "контрагент"],
+        "invoice_number": ["счёт", "счет", "номер"],
+        "date": ["дата"],
+        "sum": ["сумма"],
+        "overdue_days": ["дней", "просроч"],
+    })
+
+    debug["mapped"] = col_map
     df = df.rename(columns=col_map)
 
     for num_col in ["sum", "overdue_days"]:
@@ -217,30 +221,28 @@ def read_invoice_excel(filepath: Path) -> pd.DataFrame:
     if "date" in df.columns:
         df["date"] = pd.to_datetime(df["date"], errors="coerce")
 
-    return df
+    return df, debug
 
 
-def read_plan_excel(filepath: Path) -> pd.DataFrame:
-    """Чтение плана продаж."""
-    parsed = read_excel_auto(filepath)
-    df = parsed.data_rows.copy()
+def read_plan_excel(filepath: Path) -> tuple[pd.DataFrame, dict]:
+    df = _smart_read(filepath)
+    if df.empty:
+        raise ParseError(f"Нет данных в файле {filepath.name}")
 
-    col_map = {}
-    for col in df.columns:
-        c = normalize_col(col)
-        if any(kw in c for kw in ["клиент", "покупатель"]):
-            col_map[col] = "client"
-        elif any(kw in c for kw in ["номенклатура", "товар"]):
-            col_map[col] = "product"
-        elif any(kw in c for kw in ["план"]):
-            col_map[col] = "plan"
-        elif any(kw in c for kw in ["факт"]):
-            col_map[col] = "fact"
+    debug = {"columns": _debug_columns(df), "rows": len(df), "filename": filepath.name}
 
+    col_map = _map_columns(df, {
+        "client": ["клиент", "покупатель"],
+        "product": ["номенклатура", "товар"],
+        "plan": ["план"],
+        "fact": ["факт"],
+    })
+
+    debug["mapped"] = col_map
     df = df.rename(columns=col_map)
 
     for num_col in ["plan", "fact"]:
         if num_col in df.columns:
             df[num_col] = pd.to_numeric(df[num_col], errors="coerce").fillna(0)
 
-    return df
+    return df, debug

@@ -4,27 +4,30 @@ from pathlib import Path
 
 
 def generate_sales_products(filepaths: list[Path]) -> dict:
-    """
-    ABC-анализ продаж по товарам.
-    A = 80% выручки, B = 15%, C = 5%.
-    """
     from app.services.excel_parser import read_sales_excel
 
     frames = []
+    debug_all = []
     for fp in filepaths:
         try:
-            df = read_sales_excel(fp)
+            df, debug = read_sales_excel(fp)
             frames.append(df)
-        except Exception:
+            debug_all.append(debug)
+        except Exception as e:
+            debug_all.append({"filename": fp.name, "error": str(e)})
             continue
 
     if not frames:
-        return {"summary": {}, "data": [], "chart": {}}
+        return {"summary": {"error": "Не удалось распарсить файлы", "debug": debug_all}, "data": [], "chart": {}}
 
     df = pd.concat(frames, ignore_index=True)
 
     if "product" not in df.columns:
-        return {"summary": {"error": "Колонка 'Товар' не найдена"}, "data": [], "chart": {}}
+        available = list(df.columns)
+        return {
+            "summary": {"error": f"Колонка 'Товар' не найдена. Доступные колонки: {available}", "debug": debug_all},
+            "data": [], "chart": {},
+        }
 
     grouped = df.groupby("product", dropna=False).agg(
         revenue=("sum", "sum"),
@@ -63,6 +66,7 @@ def generate_sales_products(filepaths: list[Path]) -> dict:
         "count_a": abc_counts.get("A", 0),
         "count_b": abc_counts.get("B", 0),
         "count_c": abc_counts.get("C", 0),
+        "debug": debug_all,
     }
 
     chart = {

@@ -4,29 +4,31 @@ from pathlib import Path
 
 
 def generate_sales_clients(filepaths: list[Path]) -> dict:
-    """
-    Группировка продаж по клиенту.
-    Возвращает: summary, data, chart_data.
-    """
     from app.services.excel_parser import read_sales_excel
 
     frames = []
+    debug_all = []
     for fp in filepaths:
         try:
-            df = read_sales_excel(fp)
+            df, debug = read_sales_excel(fp)
             frames.append(df)
-        except Exception:
+            debug_all.append(debug)
+        except Exception as e:
+            debug_all.append({"filename": fp.name, "error": str(e)})
             continue
 
     if not frames:
-        return {"summary": {}, "data": [], "chart": {}}
+        return {"summary": {"error": "Не удалось распарсить файлы", "debug": debug_all}, "data": [], "chart": {}}
 
     df = pd.concat(frames, ignore_index=True)
 
     if "client" not in df.columns:
-        return {"summary": {"error": "Колонка 'Клиент' не найдена"}, "data": [], "chart": {}}
+        available = list(df.columns)
+        return {
+            "summary": {"error": f"Колонка 'Клиент' не найдена. Доступные колонки: {available}", "debug": debug_all},
+            "data": [], "chart": {},
+        }
 
-    # Группировка по клиенту
     grouped = df.groupby("client", dropna=False).agg(
         revenue=("sum", "sum"),
         sales_count=("sum", "count"),
@@ -52,6 +54,7 @@ def generate_sales_clients(filepaths: list[Path]) -> dict:
         "total_clients": len(grouped),
         "total_sales": int(grouped["sales_count"].sum()),
         "avg_check": round(float(total_revenue / max(grouped["sales_count"].sum(), 1)), 2),
+        "debug": debug_all,
     }
 
     chart = {

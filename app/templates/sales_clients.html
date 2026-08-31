@@ -24,6 +24,11 @@
     </form>
 </div>
 
+<div id="errorBox" style="display:none;" class="card" style="border-left:4px solid #dc2626;">
+    <h3 style="color:#dc2626;margin-bottom:8px;">Ошибка</h3>
+    <pre id="errorText" style="white-space:pre-wrap;font-size:13px;color:#64748b;"></pre>
+</div>
+
 <div id="result" style="display:none;">
     <div class="summary-row" id="summary"></div>
     <div class="card">
@@ -72,61 +77,75 @@ function handleFiles(files) {
     }
 }
 
+function showError(msg) {
+    document.getElementById('errorBox').style.display = 'block';
+    document.getElementById('errorText').textContent = msg;
+}
+
+function hideError() {
+    document.getElementById('errorBox').style.display = 'none';
+}
+
 async function generateReport() {
+    hideError();
     if (!uploadedFiles.length) { alert('Загрузите файлы'); return; }
 
-    // 1. Загрузка файлов
     const fd = new FormData();
     for (const f of uploadedFiles) fd.append('files', f);
-    await fetch('/upload/files', { method: 'POST', body: fd });
+    const uploadRes = await fetch('/upload/files', { method: 'POST', body: fd });
+    const uploadData = await uploadRes.json();
 
-    // 2. Генерация отчёта
     const res = await fetch('/api/generate/sales_clients', { method: 'POST' });
-    if (!res.ok) { alert('Ошибка: ' + (await res.json()).detail); return; }
     const result = await res.json();
 
-    // 3. Summary
-    const s = result.summary;
+    if (res.status !== 200) {
+        showError(result.detail || JSON.stringify(result));
+        return;
+    }
+
+    const s = result.summary || {};
+    if (s.error) {
+        showError(s.error + (s.debug ? '\n\nDebug: ' + JSON.stringify(s.debug, null, 2) : ''));
+        return;
+    }
+
+    document.getElementById('result').style.display = 'block';
     document.getElementById('summary').innerHTML = `
-        <div class="summary-card"><div class="label">Выручка</div><div class="value blue">${formatNum(s.total_revenue)} ₽</div></div>
-        <div class="summary-card"><div class="label">Клиентов</div><div class="value">${s.total_clients}</div></div>
-        <div class="summary-card"><div class="label">Продаж</div><div class="value">${s.total_sales}</div></div>
-        <div class="summary-card"><div class="label">Средний чек</div><div class="value green">${formatNum(s.avg_check)} ₽</div></div>
+        <div class="summary-card"><div class="label">Выручка</div><div class="value blue">${fmt(s.total_revenue)} &#8381;</div></div>
+        <div class="summary-card"><div class="label">Клиентов</div><div class="value">${s.total_clients || 0}</div></div>
+        <div class="summary-card"><div class="label">Продаж</div><div class="value">${s.total_sales || 0}</div></div>
+        <div class="summary-card"><div class="label">Средний чек</div><div class="value green">${fmt(s.avg_check)} &#8381;</div></div>
     `;
 
-    // 4. Таблица
     const tbody = document.getElementById('tableBody');
-    tbody.innerHTML = result.data.map(d => `
-        <tr>
-            <td><strong>${d.client}</strong></td>
-            <td>${formatNum(d.revenue)} ₽</td>
-            <td>${d.sales_count}</td>
-            <td>${formatNum(d.avg_check)} ₽</td>
-            <td>${d.share}%</td>
-        </tr>
-    `).join('');
+    if (!result.data || result.data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#64748b;">Нет данных для отображения</td></tr>';
+    } else {
+        tbody.innerHTML = result.data.map(d => `
+            <tr>
+                <td><strong>${d.client}</strong></td>
+                <td>${fmt(d.revenue)} &#8381;</td>
+                <td>${d.sales_count}</td>
+                <td>${fmt(d.avg_check)} &#8381;</td>
+                <td>${d.share}%</td>
+            </tr>
+        `).join('');
+    }
 
-    // 5. График
     if (chartInstance) chartInstance.destroy();
-    if (result.chart.labels && result.chart.labels.length) {
+    if (result.chart && result.chart.labels && result.chart.labels.length) {
         chartInstance = new Chart(document.getElementById('chart'), {
             type: 'bar',
-            data: {
-                labels: result.chart.labels,
-                datasets: [{ label: 'Выручка', data: result.chart.values, backgroundColor: '#3b82f6' }]
-            },
+            data: { labels: result.chart.labels, datasets: [{ label: 'Выручка', data: result.chart.values, backgroundColor: '#3b82f6' }] },
             options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
         });
     }
 
-    // 6. Ссылка на скачивание
     if (result.filename) {
         document.getElementById('downloadLink').href = '/api/download/' + result.filename;
     }
-
-    document.getElementById('result').style.display = 'block';
 }
 
-function formatNum(n) { return new Intl.NumberFormat('ru-RU').format(n); }
+function fmt(n) { return n != null ? new Intl.NumberFormat('ru-RU').format(n) : '—'; }
 </script>
 {% endblock %}
