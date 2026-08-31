@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Kapitan Reports{% endblock %}</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+</head>
+<body>
+    <aside class="sidebar">
+        <div class="sidebar-brand">
+            <h2>Kapitan Reports</h2>
+            <span>Отдел продаж</span>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="/" class="{% if active == 'dashboard' %}active{% endif %}">
+                <span class="icon">&#9632;</span> Все отчёты
+            </a>
+            <div class="sidebar-section">Анализ</div>
+            <a href="/report/sales_clients" class="{% if active == 'sales_clients' %}active{% endif %}">
+                <span class="icon">&#9654;</span> Продажи по клиентам
+            </a>
+            <a href="/report/sales_products" class="{% if active == 'sales_products' %}active{% endif %}">
+                <span class="icon">&#9654;</span> Продажи по товарам
+            </a>
+            <a href="/report/dynamics" class="{% if active == 'dynamics' %}active{% endif %}">
+                <span class="icon">&#9650;</span> Динамика продаж
+            </a>
+            <a href="/report/forecast" class="{% if active == 'forecast' %}active{% endif %}">
+                <span class="icon">&#9670;</span> План vs Факт
+            </a>
+            <div class="sidebar-section">Склад</div>
+            <a href="/report/inventory" class="{% if active == 'inventory' %}active{% endif %}">
+                <span class="icon">&#9632;</span> Остатки на складах
+            </a>
+            <a href="/report/nelikvid" class="{% if active == 'nelikvid' %}active{% endif %}">
+                <span class="icon">&#9632;</span> Неликвиды
+            </a>
+            <div class="sidebar-section">Финансы</div>
+            <a href="/report/debt" class="{% if active == 'debt' %}active{% endif %}">
+                <span class="icon">&#9632;</span> Неоплаченные счета
+            </a>
+        </nav>
+    </aside>
+
+    <main class="main">
+        {% block content %}{% endblock %}
+    </main>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

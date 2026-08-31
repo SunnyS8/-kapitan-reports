@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% set active = "dashboard" %}
+
+{% block title %}Kapitan Reports — Все отчёты{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Отчёты для отдела продаж</h1>
+    <p>Выберите тип отчёта для формирования</p>
+</div>
+
+<div class="card-grid">
+    {% for r in reports %}
+    <a href="/report/{{ r.key }}" class="report-card">
+        <div class="icon">
+            {% if r.key == "sales_clients" %}&#128100;
+            {% elif r.key == "sales_products" %}&#128230;
+            {% elif r.key == "inventory" %}&#128230;
+            {% elif r.key == "dynamics" %}&#128200;
+            {% elif r.key == "forecast" %}&#127919;
+            {% elif r.key == "debt" %}&#128176;
+            {% elif r.key == "nelikvid" %}&#9888;
+            {% else %}&#128196;{% endif %}
+        </div>
+        <h3>{{ r.name }}</h3>
+        <p>
+            {% if r.key == "sales_clients" %}Выручка, кол-во, средний чек по клиентам
+            {% elif r.key == "sales_products" %}ABC-анализ, топ товары, доля в портфеле
+            {% elif r.key == "inventory" %}Текущие остатки, движение по складам
+            {% elif r.key == "dynamics" %}Сравнение периодов, % изменения, тренд
+            {% elif r.key == "forecast" %}Факт vs план, % выполнения
+            {% elif r.key == "debt" %}Дебиторка, просрочка по счетам
+            {% elif r.key == "nelikvid" %}Медленно продающиеся товары, формула расчёта
+            {% endif %}
+        </p>
+    </a>
+    {% endfor %}
+</div>
+{% endblock %}

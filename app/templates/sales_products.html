@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% set active = "sales_products" %}
+
+{% block title %}Продажи по товарам — Kapitan Reports{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Продажи по товарам</h1>
+    <p>ABC-анализ, топ товары, доля в портфеле</p>
+</div>
+
+<div class="card">
+    <h2 style="margin-bottom:16px;">Загрузка данных</h2>
+    <form id="uploadForm" enctype="multipart/form-data">
+        <div class="upload-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+            <input type="file" id="fileInput" name="files" multiple accept=".xlsx,.xls" onchange="handleFiles(this.files)">
+            <p>&#128206; Перетащите файлы выгрузки 1С или нажмите для выбора</p>
+        </div>
+        <div id="fileList" style="margin-top:12px;"></div>
+        <div style="margin-top:16px;">
+            <button type="button" class="btn btn-primary" onclick="generateReport()">&#9654; Сформировать отчёт</button>
+        </div>
+    </form>
+</div>
+
+<div id="result" style="display:none;">
+    <div class="summary-row" id="summary"></div>
+    <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <h2>ABC-анализ</h2>
+            <a id="downloadLink" class="btn btn-success" href="#">&#128229; Скачать Excel</a>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
+            <div class="chart-container"><canvas id="chartAbc"></canvas></div>
+            <div class="chart-container"><canvas id="chartPie"></canvas></div>
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Товар</th>
+                        <th>Категория</th>
+                        <th>Выручка</th>
+                        <th>Доля, %</th>
+                        <th>Накопит., %</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let uploadedFiles = [];
+let chartAbcInst = null, chartPieInst = null;
+
+const dropZone = document.getElementById('dropZone');
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('dragover'); handleFiles(e.dataTransfer.files); });
+
+function handleFiles(files) {
+    const list = document.getElementById('fileList');
+    list.innerHTML = '';
+    uploadedFiles = [];
+    for (const f of files) { uploadedFiles.push(f); list.innerHTML += `<div style="padding:4px 0;font-size:13px;">&#128196; ${f.name}</div>`; }
+}
+
+async function generateReport() {
+    if (!uploadedFiles.length) { alert('Загрузите файлы'); return; }
+    const fd = new FormData();
+    for (const f of uploadedFiles) fd.append('files', f);
+    await fetch('/upload/files', { method: 'POST', body: fd });
+
+    const res = await fetch('/api/generate/sales_products', { method: 'POST' });
+    if (!res.ok) { alert('Ошибка'); return; }
+    const result = await res.json();
+
+    const s = result.summary;
+    document.getElementById('summary').innerHTML = `
+        <div class="summary-card"><div class="label">Выручка</div><div class="value blue">${fmt(s.total_revenue)} ₽</div></div>
+        <div class="summary-card"><div class="label">Товаров</div><div class="value">${s.total_products}</div></div>
+        <div class="summary-card"><div class="label">Категория A</div><div class="value green">${s.count_a}</div></div>
+        <div class="summary-card"><div class="label">Категория B</div><div class="value" style="color:#eab308">${s.count_b}</div></div>
+        <div class="summary-card"><div class="label">Категория C</div><div class="value red">${s.count_c}</div></div>
+    `;
+
+    document.getElementById('tableBody').innerHTML = result.data.map(d => `
+        <tr>
+            <td><strong>${d.product}</strong></td>
+            <td><span class="badge badge-${d.category.toLowerCase()}">${d.category}</span></td>
+            <td>${fmt(d.revenue)} ₽</td>
+            <td>${d.share}%</td>
+            <td>${d.cum_share}%</td>
+        </tr>
+    `).join('');
+
+    if (chartAbcInst) chartAbcInst.destroy();
+    if (chartPieInst) chartPieInst.destroy();
+
+    if (result.chart.labels && result.chart.labels.length) {
+        chartAbcInst = new Chart(document.getElementById('chartAbc'), {
+            type: 'bar',
+            data: { labels: result.chart.labels, datasets: [{ label: 'Выручка', data: result.chart.values, backgroundColor: result.chart.colors }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+        });
+
+        const catSums = { A: 0, B: 0, C: 0 };
+        result.data.forEach(d => { catSums[d.category] += d.revenue; });
+        chartPieInst = new Chart(document.getElementById('chartPie'), {
+            type: 'doughnut',
+            data: { labels: Object.keys(catSums), datasets: [{ data: Object.values(catSums), backgroundColor: ['#16a34a', '#eab308', '#dc2626'] }] },
+            options: { responsive: true, maintainAspectRatio: false }
+        });
+    }
+
+    if (result.filename) document.getElementById('downloadLink').href = '/api/download/' + result.filename;
+    document.getElementById('result').style.display = 'block';
+}
+
+function fmt(n) { return new Intl.NumberFormat('ru-RU').format(n); }
+</script>
+{% endblock %}

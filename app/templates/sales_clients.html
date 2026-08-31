@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% set active = "sales_clients" %}
+
+{% block title %}Продажи по клиентам — Kapitan Reports{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Продажи по клиентам</h1>
+    <p>Выручка, количество, средний чек по каждому клиенту</p>
+</div>
+
+<div class="card">
+    <h2 style="margin-bottom:16px;">Загрузка данных</h2>
+    <form id="uploadForm" enctype="multipart/form-data">
+        <div class="upload-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+            <input type="file" id="fileInput" name="files" multiple accept=".xlsx,.xls" onchange="handleFiles(this.files)">
+            <p>&#128206; Перетащите файлы выгрузки 1С или нажмите для выбора</p>
+            <p style="font-size:12px;margin-top:8px;">Формат: .xlsx</p>
+        </div>
+        <div id="fileList" style="margin-top:12px;"></div>
+        <div style="margin-top:16px;">
+            <button type="button" class="btn btn-primary" onclick="generateReport()">&#9654; Сформировать отчёт</button>
+        </div>
+    </form>
+</div>
+
+<div id="result" style="display:none;">
+    <div class="summary-row" id="summary"></div>
+    <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <h2>Детализация по клиентам</h2>
+            <a id="downloadLink" class="btn btn-success" href="#">&#128229; Скачать Excel</a>
+        </div>
+        <div class="chart-container" style="margin-bottom:20px;">
+            <canvas id="chart"></canvas>
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Клиент</th>
+                        <th>Выручка</th>
+                        <th>Кол-во продаж</th>
+                        <th>Средний чек</th>
+                        <th>Доля, %</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let uploadedFiles = [];
+let chartInstance = null;
+
+const dropZone = document.getElementById('dropZone');
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('dragover'); handleFiles(e.dataTransfer.files); });
+
+function handleFiles(files) {
+    const list = document.getElementById('fileList');
+    list.innerHTML = '';
+    uploadedFiles = [];
+    for (const f of files) {
+        uploadedFiles.push(f);
+        list.innerHTML += `<div style="padding:4px 0;font-size:13px;">&#128196; ${f.name} (${(f.size/1024).toFixed(1)} КБ)</div>`;
+    }
+}
+
+async function generateReport() {
+    if (!uploadedFiles.length) { alert('Загрузите файлы'); return; }
+
+    // 1. Загрузка файлов
+    const fd = new FormData();
+    for (const f of uploadedFiles) fd.append('files', f);
+    await fetch('/upload/files', { method: 'POST', body: fd });
+
+    // 2. Генерация отчёта
+    const res = await fetch('/api/generate/sales_clients', { method: 'POST' });
+    if (!res.ok) { alert('Ошибка: ' + (await res.json()).detail); return; }
+    const result = await res.json();
+
+    // 3. Summary
+    const s = result.summary;
+    document.getElementById('summary').innerHTML = `
+        <div class="summary-card"><div class="label">Выручка</div><div class="value blue">${formatNum(s.total_revenue)} ₽</div></div>
+        <div class="summary-card"><div class="label">Клиентов</div><div class="value">${s.total_clients}</div></div>
+        <div class="summary-card"><div class="label">Продаж</div><div class="value">${s.total_sales}</div></div>
+        <div class="summary-card"><div class="label">Средний чек</div><div class="value green">${formatNum(s.avg_check)} ₽</div></div>
+    `;
+
+    // 4. Таблица
+    const tbody = document.getElementById('tableBody');
+    tbody.innerHTML = result.data.map(d => `
+        <tr>
+            <td><strong>${d.client}</strong></td>
+            <td>${formatNum(d.revenue)} ₽</td>
+            <td>${d.sales_count}</td>
+            <td>${formatNum(d.avg_check)} ₽</td>
+            <td>${d.share}%</td>
+        </tr>
+    `).join('');
+
+    // 5. График
+    if (chartInstance) chartInstance.destroy();
+    if (result.chart.labels && result.chart.labels.length) {
+        chartInstance = new Chart(document.getElementById('chart'), {
+            type: 'bar',
+            data: {
+                labels: result.chart.labels,
+                datasets: [{ label: 'Выручка', data: result.chart.values, backgroundColor: '#3b82f6' }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+        });
+    }
+
+    // 6. Ссылка на скачивание
+    if (result.filename) {
+        document.getElementById('downloadLink').href = '/api/download/' + result.filename;
+    }
+
+    document.getElementById('result').style.display = 'block';
+}
+
+function formatNum(n) { return new Intl.NumberFormat('ru-RU').format(n); }
+</script>
+{% endblock %}

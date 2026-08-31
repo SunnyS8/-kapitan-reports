@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% set active = "dynamics" %}
+
+{% block title %}Динамика продаж — Kapitan Reports{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Динамика продаж</h1>
+    <p>Сравнение периодов, процент изменения, тренд</p>
+</div>
+
+<div class="card">
+    <h2 style="margin-bottom:16px;">Загрузка данных</h2>
+    <form id="uploadForm" enctype="multipart/form-data">
+        <div class="upload-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+            <input type="file" id="fileInput" name="files" multiple accept=".xlsx,.xls" onchange="handleFiles(this.files)">
+            <p>&#128206; Перетащите 2+ файла за разные периоды</p>
+        </div>
+        <div id="fileList" style="margin-top:12px;"></div>
+        <div style="margin-top:16px;">
+            <button type="button" class="btn btn-primary" onclick="generateReport()">&#9654; Сформировать отчёт</button>
+        </div>
+    </form>
+</div>
+
+<div id="result" style="display:none;">
+    <div class="summary-row" id="summary"></div>
+    <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <h2>Сравнение периодов</h2>
+            <a id="downloadLink" class="btn btn-success" href="#">&#128229; Скачать Excel</a>
+        </div>
+        <div class="chart-container" style="margin-bottom:20px;">
+            <canvas id="chart"></canvas>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let uploadedFiles = [], chartInst = null;
+
+const dropZone = document.getElementById('dropZone');
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('dragover'); handleFiles(e.dataTransfer.files); });
+
+function handleFiles(files) {
+    const list = document.getElementById('fileList'); list.innerHTML = ''; uploadedFiles = [];
+    for (const f of files) { uploadedFiles.push(f); list.innerHTML += `<div style="padding:4px 0;font-size:13px;">&#128196; ${f.name}</div>`; }
+}
+
+async function generateReport() {
+    if (uploadedFiles.length < 2) { alert('Нужно минимум 2 файла'); return; }
+    const fd = new FormData();
+    for (const f of uploadedFiles) fd.append('files', f);
+    await fetch('/upload/files', { method: 'POST', body: fd });
+
+    const res = await fetch('/api/generate/dynamics', { method: 'POST' });
+    if (!res.ok) { alert('Ошибка'); return; }
+    const result = await res.json();
+
+    const s = result.summary;
+    const trendIcon = s.trend === 'up' ? '&#9650;' : s.trend === 'down' ? '&#9660;' : '&#9644;';
+    const trendClass = s.diff >= 0 ? 'green' : 'red';
+
+    document.getElementById('summary').innerHTML = `
+        <div class="summary-card"><div class="label">Период 1</div><div class="value">${s.period_1}</div></div>
+        <div class="summary-card"><div class="label">Период 2</div><div class="value">${s.period_2}</div></div>
+        <div class="summary-card"><div class="label">Выручка 1</div><div class="value blue">${fmt(s.revenue_1)} ₽</div></div>
+        <div class="summary-card"><div class="label">Выручка 2</div><div class="value blue">${fmt(s.revenue_2)} ₽</div></div>
+        <div class="summary-card"><div class="label">Изменение</div><div class="value ${trendClass}">${trendIcon} ${s.diff_pct}%</div></div>
+    `;
+
+    if (chartInst) chartInst.destroy();
+    if (result.chart.labels && result.chart.labels.length) {
+        chartInst = new Chart(document.getElementById('chart'), {
+            type: 'bar',
+            data: { labels: result.chart.labels, datasets: [{ label: 'Выручка', data: result.chart.values, backgroundColor: ['#3b82f6', '#10b981'] }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+        });
+    }
+
+    if (result.filename) document.getElementById('downloadLink').href = '/api/download/' + result.filename;
+    document.getElementById('result').style.display = 'block';
+}
+
+function fmt(n) { return new Intl.NumberFormat('ru-RU').format(n); }
+</script>
+{% endblock %}

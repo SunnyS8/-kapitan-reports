@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% set active = "forecast" %}
+
+{% block title %}План vs Факт — Kapitan Reports{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>План vs Факт</h1>
+    <p>Выполнение плана продаж, процент, цветовая индикация</p>
+</div>
+
+<div class="card">
+    <h2 style="margin-bottom:16px;">Загрузка данных</h2>
+    <form id="uploadForm" enctype="multipart/form-data">
+        <div class="upload-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+            <input type="file" id="fileInput" name="files" multiple accept=".xlsx,.xls" onchange="handleFiles(this.files)">
+            <p>&#128206; Перетащите файлы: факт продаж + план</p>
+        </div>
+        <div id="fileList" style="margin-top:12px;"></div>
+        <div style="margin-top:16px;">
+            <button type="button" class="btn btn-primary" onclick="generateReport()">&#9654; Сформировать отчёт</button>
+        </div>
+    </form>
+</div>
+
+<div id="result" style="display:none;">
+    <div class="summary-row" id="summary"></div>
+    <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <h2>Выполнение плана</h2>
+            <a id="downloadLink" class="btn btn-success" href="#">&#128229; Скачать Excel</a>
+        </div>
+        <div class="chart-container" style="margin-bottom:20px;">
+            <canvas id="chart"></canvas>
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Клиент</th>
+                        <th>План</th>
+                        <th>Факт</th>
+                        <th>% выполнения</th>
+                        <th>Статус</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let uploadedFiles = [], chartInst = null;
+
+const dropZone = document.getElementById('dropZone');
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('dragover'); handleFiles(e.dataTransfer.files); });
+
+function handleFiles(files) {
+    const list = document.getElementById('fileList'); list.innerHTML = ''; uploadedFiles = [];
+    for (const f of files) { uploadedFiles.push(f); list.innerHTML += `<div style="padding:4px 0;font-size:13px;">&#128196; ${f.name}</div>`; }
+}
+
+async function generateReport() {
+    if (!uploadedFiles.length) { alert('Загрузите файлы'); return; }
+    const fd = new FormData();
+    for (const f of uploadedFiles) fd.append('files', f);
+    await fetch('/upload/files', { method: 'POST', body: fd });
+
+    const res = await fetch('/api/generate/forecast', { method: 'POST' });
+    if (!res.ok) { alert('Ошибка'); return; }
+    const result = await res.json();
+
+    const s = result.summary;
+    document.getElementById('summary').innerHTML = `
+        <div class="summary-card"><div class="label">План</div><div class="value blue">${fmt(s.total_plan)} ₽</div></div>
+        <div class="summary-card"><div class="label">Факт</div><div class="value green">${fmt(s.total_fact)} ₽</div></div>
+        <div class="summary-card"><div class="label">Выполнение</div><div class="value">${s.total_pct}%</div></div>
+        <div class="summary-card"><div class="label">Позиций</div><div class="value">${s.items_count}</div></div>
+    `;
+
+    document.getElementById('tableBody').innerHTML = result.data.map(d => {
+        const statusBadge = d.status === 'ok' ? '<span class="badge badge-a">Выполнено</span>'
+            : d.status === 'warn' ? '<span class="badge badge-b">В зоне риска</span>'
+            : d.status === 'no_plan' ? '<span class="badge badge-ok">Нет плана</span>'
+            : '<span class="badge badge-c">Не выполнено</span>';
+        return `<tr><td><strong>${d.name}</strong></td><td>${fmt(d.plan)} ₽</td><td>${fmt(d.fact)} ₽</td><td>${d.pct}%</td><td>${statusBadge}</td></tr>`;
+    }).join('');
+
+    if (chartInst) chartInst.destroy();
+    if (result.chart.labels && result.chart.labels.length) {
+        chartInst = new Chart(document.getElementById('chart'), {
+            type: 'bar',
+            data: { labels: result.chart.labels, datasets: [
+                { label: 'План', data: result.chart.plan, backgroundColor: '#94a3b8' },
+                { label: 'Факт', data: result.chart.fact, backgroundColor: '#3b82f6' }
+            ]},
+            options: { responsive: true, maintainAspectRatio: false }
+        });
+    }
+
+    if (result.filename) document.getElementById('downloadLink').href = '/api/download/' + result.filename;
+    document.getElementById('result').style.display = 'block';
+}
+
+function fmt(n) { return new Intl.NumberFormat('ru-RU').format(n); }
+</script>
+{% endblock %}

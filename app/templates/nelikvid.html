@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% set active = "nelikvid" %}
+
+{% block title %}Неликвиды — Kapitan Reports{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Отчёт по неликвидам</h1>
+    <p>Медленно продающиеся товары. Формула: Сумма = Цена&#8321;&#8322; × длина × ширина × рулоны</p>
+</div>
+
+<div class="card">
+    <h2 style="margin-bottom:16px;">Загрузка данных</h2>
+    <form id="uploadForm" enctype="multipart/form-data">
+        <div class="upload-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+            <input type="file" id="fileInput" name="files" multiple accept=".xlsx,.xls" onchange="handleFiles(this.files)">
+            <p>&#128206; Перетащите файлы: Неликвид.xlsx + остатки + цены</p>
+            <p style="font-size:12px;margin-top:8px;">Формат: .xlsx</p>
+        </div>
+        <div id="fileList" style="margin-top:12px;"></div>
+        <div style="margin-top:16px;">
+            <button type="button" class="btn btn-primary" onclick="generateReport()">&#9654; Сформировать отчёт</button>
+        </div>
+    </form>
+</div>
+
+<div id="result" style="display:none;">
+    <div class="summary-row" id="summary"></div>
+    <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <h2>Детализация неликвидов</h2>
+            <a id="downloadLink" class="btn btn-success" href="#">&#128229; Скачать Excel</a>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
+            <div class="chart-container"><canvas id="chartCategory"></canvas></div>
+            <div class="chart-container"><canvas id="chartWarehouse"></canvas></div>
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Товар</th>
+                        <th>Характеристика</th>
+                        <th>Склад</th>
+                        <th>Кол-во</th>
+                        <th>Цена за м²</th>
+                        <th>Длина</th>
+                        <th>Ширина</th>
+                        <th>Сумма</th>
+                        <th>Категория</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let uploadedFiles = [], chartCatInst = null, chartWhInst = null;
+
+const dropZone = document.getElementById('dropZone');
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('dragover'); handleFiles(e.dataTransfer.files); });
+
+function handleFiles(files) {
+    const list = document.getElementById('fileList'); list.innerHTML = ''; uploadedFiles = [];
+    for (const f of files) { uploadedFiles.push(f); list.innerHTML += `<div style="padding:4px 0;font-size:13px;">&#128196; ${f.name}</div>`; }
+}
+
+async function generateReport() {
+    if (!uploadedFiles.length) { alert('Загрузите файлы'); return; }
+    const fd = new FormData();
+    for (const f of uploadedFiles) fd.append('files', f);
+    await fetch('/upload/files', { method: 'POST', body: fd });
+
+    const res = await fetch('/api/generate/nelikvid', { method: 'POST' });
+    if (!res.ok) { alert('Ошибка'); return; }
+    const result = await res.json();
+
+    const s = result.summary;
+    let catHtml = '';
+    if (s.categories) {
+        for (const [cat, val] of Object.entries(s.categories)) {
+            catHtml += `<div class="summary-card"><div class="label">${cat}</div><div class="value">${fmt(val)} ₽</div></div>`;
+        }
+    }
+    document.getElementById('summary').innerHTML = `
+        <div class="summary-card"><div class="label">Всего позиций</div><div class="value">${s.total_items}</div></div>
+        <div class="summary-card"><div class="label">Общая сумма</div><div class="value blue">${fmt(s.total_sum)} ₽</div></div>
+        ${catHtml}
+    `;
+
+    document.getElementById('tableBody').innerHTML = result.data.map(d => `
+        <tr>
+            <td><strong>${d.product || ''}</strong></td>
+            <td>${d.characteristic || ''}</td>
+            <td>${d.warehouse || ''}</td>
+            <td>${d.end_balance || 0}</td>
+            <td>${fmt(d.price_per_m2 || 0)} ₽</td>
+            <td>${d.length || 0} м</td>
+            <td>${d.width || 0} см</td>
+            <td>${fmt(d.sum || 0)} ₽</td>
+            <td>${d.category || ''}</td>
+        </tr>
+    `).join('');
+
+    if (chartCatInst) chartCatInst.destroy();
+    if (chartWhInst) chartWhInst.destroy();
+
+    const chartC = result.chart_category || result.chart;
+    if (chartC && chartC.labels && chartC.labels.length) {
+        chartCatInst = new Chart(document.getElementById('chartCategory'), {
+            type: 'doughnut',
+            data: { labels: chartC.labels, datasets: [{ data: chartC.values, backgroundColor: ['#3b82f6', '#10b981', '#eab308', '#dc2626'] }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { title: { display: true, text: 'По категориям' } } }
+        });
+    }
+
+    const chartW = result.chart_warehouse;
+    if (chartW && chartW.labels && chartW.labels.length) {
+        chartWhInst = new Chart(document.getElementById('chartWarehouse'), {
+            type: 'bar',
+            data: { labels: chartW.labels, datasets: [{ label: 'Сумма', data: chartW.values, backgroundColor: '#3b82f6' }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { title: { display: true, text: 'По складам' } } }
+        });
+    }
+
+    if (result.filename) document.getElementById('downloadLink').href = '/api/download/' + result.filename;
+    document.getElementById('result').style.display = 'block';
+}
+
+function fmt(n) { return new Intl.NumberFormat('ru-RU').format(n); }
+</script>
+{% endblock %}
