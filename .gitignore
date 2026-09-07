@@ -4,6 +4,8 @@ uploads/*
 !uploads/.gitkeep
 reports/*
 !reports/.gitkeep
+inbox/*
+!inbox/.gitkeep
 .env
 *.log
 .DS_Store
