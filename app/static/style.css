@@ -107,6 +107,7 @@ body {
 .section-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 16px; }
 .inbox-toolbar { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #e2e8f0; font-size: 13px; }
 .managed-files { max-height: 420px; overflow: auto; }
+.source-picker { max-height: 280px; overflow: auto; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px; }
 .managed-file, .file-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 4px; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
 .managed-file label { display: flex; align-items: center; gap: 8px; min-width: 0; overflow-wrap: anywhere; }
 .icon-btn { border: 0; background: transparent; color: #94a3b8; cursor: pointer; font-size: 17px; padding: 4px 8px; }

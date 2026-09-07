@@ -10,17 +10,11 @@
 </div>
 
 <div class="card">
-    <h2 style="margin-bottom:16px;">Загрузка данных</h2>
-    <form id="uploadForm" enctype="multipart/form-data">
-        <div class="upload-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
-            <input type="file" id="fileInput" name="files" multiple accept=".xlsx,.xls" onchange="handleFiles(this.files)">
-            <p>&#128206; Перетащите 2+ файла за разные периоды</p>
-        </div>
-        <div id="fileList" style="margin-top:12px;"></div>
-        <div style="margin-top:16px;">
-            <button type="button" class="btn btn-primary" onclick="generateReport()">&#9654; Сформировать отчёт</button>
-        </div>
-    </form>
+    <h2 style="margin-bottom:8px;">Выбор выгрузок из 1С</h2>
+    <p class="muted" style="margin-bottom:12px;">Выберите минимум два исходника за разные периоды.</p>
+    <div id="inboxList" class="source-picker"></div>
+    <div class="inbox-toolbar"><label><input type="checkbox" id="selectAll" onchange="toggleAll(this.checked)"> Выбрать все</label></div>
+    <button type="button" class="btn btn-primary" style="margin-top:16px;" onclick="generateReport()">&#9654; Сформировать отчёт</button>
 </div>
 
 <div id="result" style="display:none;">
@@ -40,25 +34,12 @@
 
 {% block scripts %}
 <script>
-let uploadedFiles = [], chartInst = null;
-
-const dropZone = document.getElementById('dropZone');
-dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
-dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
-dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('dragover'); handleFiles(e.dataTransfer.files); });
-
-function handleFiles(files) {
-    const list = document.getElementById('fileList'); list.innerHTML = ''; uploadedFiles = [];
-    for (const f of files) { uploadedFiles.push(f); list.innerHTML += `<div style="padding:4px 0;font-size:13px;">&#128196; ${f.name}</div>`; }
-}
+let chartInst = null;
 
 async function generateReport() {
-    if (uploadedFiles.length < 2) { alert('Нужно минимум 2 файла'); return; }
-    const fd = new FormData();
-    for (const f of uploadedFiles) fd.append('files', f);
-    await fetch('/upload/files', { method: 'POST', body: fd });
-
-    const res = await fetch('/api/generate/dynamics', { method: 'POST' });
+    const names = selectedFiles();
+    if (names.length < 2) { alert('Выберите минимум 2 файла'); return; }
+    const res = await fetch('/api/generate/dynamics', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({files: names}) });
     if (!res.ok) { alert('Ошибка'); return; }
     const result = await res.json();
 
@@ -89,5 +70,6 @@ async function generateReport() {
 }
 
 function fmt(n) { return new Intl.NumberFormat('ru-RU').format(n); }
+loadInbox();
 </script>
 {% endblock %}

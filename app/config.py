@@ -26,8 +26,9 @@ KNOWLEDGE_MONTHLY = BASE_KNOWLEDGE / "07 - Ежемесячные отчёты"
 for _d in (BASE_KNOWLEDGE, KNOWLEDGE_ANALYTICS, KNOWLEDGE_MONTHLY):
     _d.mkdir(parents=True, exist_ok=True)
 
-# Папка входных выгрузок из 1С + справочники (внутри проекта)
-INBOX_DIR = BASE_DIR / "inbox"
+# Папка входных выгрузок из 1С + справочники. На Railway она находится
+# на Persistent Volume вместе с загруженными отчётами.
+INBOX_DIR = DATA_DIR / "inbox"
 REF_DIR = INBOX_DIR / "Справочники"
 
 for _d in (INBOX_DIR, REF_DIR):

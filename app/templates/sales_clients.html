@@ -10,18 +10,11 @@
 </div>
 
 <div class="card">
-    <h2 style="margin-bottom:16px;">Загрузка данных</h2>
-    <form id="uploadForm" enctype="multipart/form-data">
-        <div class="upload-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
-            <input type="file" id="fileInput" name="files" multiple accept=".xlsx,.xls" onchange="handleFiles(this.files)">
-            <p>&#128206; Перетащите файлы выгрузки 1С или нажмите для выбора</p>
-            <p style="font-size:12px;margin-top:8px;">Формат: .xlsx</p>
-        </div>
-        <div id="fileList" style="margin-top:12px;"></div>
-        <div style="margin-top:16px;">
-            <button type="button" class="btn btn-primary" onclick="generateReport()">&#9654; Сформировать отчёт</button>
-        </div>
-    </form>
+    <h2 style="margin-bottom:8px;">Выбор выгрузок из 1С</h2>
+    <p class="muted" style="margin-bottom:12px;">Выберите исходники, загруженные в разделе «Выгрузка из 1С».</p>
+    <div id="inboxList" class="source-picker"></div>
+    <div class="inbox-toolbar"><label><input type="checkbox" id="selectAll" onchange="toggleAll(this.checked)"> Выбрать все</label></div>
+    <button type="button" class="btn btn-primary" style="margin-top:16px;" onclick="generateReport()">&#9654; Сформировать отчёт</button>
 </div>
 
 <div id="errorBox" style="display:none;" class="card" style="border-left:4px solid #dc2626;">
@@ -60,23 +53,7 @@
 
 {% block scripts %}
 <script>
-let uploadedFiles = [];
 let chartInstance = null;
-
-const dropZone = document.getElementById('dropZone');
-dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
-dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
-dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('dragover'); handleFiles(e.dataTransfer.files); });
-
-function handleFiles(files) {
-    const list = document.getElementById('fileList');
-    list.innerHTML = '';
-    uploadedFiles = [];
-    for (const f of files) {
-        uploadedFiles.push(f);
-        list.innerHTML += `<div style="padding:4px 0;font-size:13px;">&#128196; ${f.name} (${(f.size/1024).toFixed(1)} КБ)</div>`;
-    }
-}
 
 function showError(msg) {
     document.getElementById('errorBox').style.display = 'block';
@@ -89,14 +66,10 @@ function hideError() {
 
 async function generateReport() {
     hideError();
-    if (!uploadedFiles.length) { alert('Загрузите файлы'); return; }
+    const names = selectedFiles();
+    if (!names.length) { alert('Выберите хотя бы один файл'); return; }
 
-    const fd = new FormData();
-    for (const f of uploadedFiles) fd.append('files', f);
-    const uploadRes = await fetch('/upload/files', { method: 'POST', body: fd });
-    const uploadData = await uploadRes.json();
-
-    const res = await fetch('/api/generate/sales_clients', { method: 'POST' });
+    const res = await fetch('/api/generate/sales_clients', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({files: names}) });
     const result = await res.json();
 
     if (res.status !== 200) {
@@ -149,5 +122,6 @@ async function generateReport() {
 }
 
 function fmt(n) { return n != null ? new Intl.NumberFormat('ru-RU').format(n) : '—'; }
+loadInbox();
 </script>
 {% endblock %}
