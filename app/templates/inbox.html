@@ -15,11 +15,11 @@
     <form id="inboxUploadForm" enctype="multipart/form-data">
         <div class="upload-zone" id="inboxDropZone" onclick="document.getElementById('inboxFileInput').click()">
             <input type="file" id="inboxFileInput" name="files" multiple accept=".xlsx,.xls">
-            <p>&#128206; Перетащите выгрузки 1С сюда или нажмите для выбора</p>
+            <p><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg> Перетащите выгрузки 1С сюда или нажмите для выбора</p>
             <p style="font-size:12px;margin-top:8px;">Поддерживаются .xlsx и .xls</p>
         </div>
         <div id="inboxUploadList" class="file-list"></div>
-        <button type="submit" class="btn btn-primary" style="margin-top:16px;">&#128228; Сохранить выгрузки</button>
+        <button type="submit" class="btn btn-primary" style="margin-top:16px;"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h11l3 3v13H5zM8 4v6h8V4M8 20v-6h8v6"/></svg> Сохранить выгрузки</button>
     </form>
     <div id="inboxMessage" class="notice" hidden></div>
 </div>

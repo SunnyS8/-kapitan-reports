@@ -10,7 +10,7 @@
         <h1>Добро пожаловать в Kapitan Reports</h1>
         <p>Соберите картину продаж, склада и финансов в одном рабочем пространстве.</p>
     </div>
-    <a class="btn btn-primary page-header-action" href="/inbox">&#128228; Загрузить выгрузку</a>
+    <a class="btn btn-primary page-header-action" href="/inbox"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg> Загрузить выгрузку</a>
 </div>
 
 <div class="dashboard-intro">
@@ -35,20 +35,7 @@
 <div class="card-grid">
     {% for r in reports %}
     <a href="/report/{{ r.key }}" class="report-card">
-        <div class="report-card-top"><div class="icon">
-            {% if r.key == "sales_clients" %}&#128100;
-            {% elif r.key == "sales_products" %}&#128230;
-            {% elif r.key == "inventory" %}&#128230;
-            {% elif r.key == "stock_dynamics" %}&#128200;
-            {% elif r.key == "dynamics" %}&#128200;
-            {% elif r.key == "forecast" %}&#127919;
-            {% elif r.key == "debt" %}&#128176;
-            {% elif r.key == "debt_manager" %}&#128176;
-            {% elif r.key == "clients" %}&#128100;
-            {% elif r.key == "edo" %}&#128196;
-            {% elif r.key == "nelikvid" %}&#9888;
-            {% else %}&#128196;{% endif %}
-        </div><span class="card-arrow">&#8599;</span></div>
+        <div class="report-card-top"><div class="icon"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5m0 14h16M7 15l3-4 3 2 4-6"/></svg></div><span class="card-arrow"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></span></div>
         <h3>{{ r.name }}</h3>
         <p>
             {% if r.key == "sales_clients" %}Выручка, кол-во, средний чек по клиентам

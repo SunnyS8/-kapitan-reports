@@ -17,7 +17,7 @@
         <label><input type="checkbox" id="selectAll" onchange="toggleAll(this.checked)"> Выбрать все</label>
     </div>
     <div style="margin-top:16px;">
-        <button type="button" class="btn btn-primary" onclick="generateReport()">&#9654; Сформировать отчёт</button>
+        <button type="button" class="btn btn-primary" onclick="generateReport()"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7V5Z"/></svg> Сформировать отчёт</button>
     </div>
 </div>
 
@@ -27,7 +27,7 @@
     <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
             <h2>Детализация по складам</h2>
-            <a id="downloadLink" class="btn btn-success" href="#">&#128229; Скачать Excel</a>
+            <a id="downloadLink" class="btn btn-success" href="#"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg> Скачать Excel</a>
         </div>
         <div class="chart-container" style="margin-bottom:20px;">
             <canvas id="chart"></canvas>

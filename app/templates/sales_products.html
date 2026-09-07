@@ -14,7 +14,7 @@
     <p class="muted" style="margin-bottom:12px;">Выберите исходники, загруженные в разделе «Выгрузка из 1С».</p>
     <div id="inboxList" class="source-picker"></div>
     <div class="inbox-toolbar"><label><input type="checkbox" id="selectAll" onchange="toggleAll(this.checked)"> Выбрать все</label></div>
-    <button type="button" class="btn btn-primary" style="margin-top:16px;" onclick="generateReport()">&#9654; Сформировать отчёт</button>
+    <button type="button" class="btn btn-primary" style="margin-top:16px;" onclick="generateReport()"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7V5Z"/></svg> Сформировать отчёт</button>
 </div>
 
 <div id="result" style="display:none;">
@@ -23,7 +23,7 @@
     <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
             <h2>ABC-анализ</h2>
-            <a id="downloadLink" class="btn btn-success" href="#">&#128229; Скачать Excel</a>
+            <a id="downloadLink" class="btn btn-success" href="#"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg> Скачать Excel</a>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
             <div class="chart-container"><canvas id="chartAbc"></canvas></div>
