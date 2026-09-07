@@ -6,6 +6,20 @@
 let _inboxData = { files: [], folders: [] };
 let _expandedFolders = {};
 
+function savedInboxSelection() {
+    try { return JSON.parse(localStorage.getItem('kapitanSelectedFiles') || '[]'); }
+    catch (e) { return []; }
+}
+
+function inboxFileChecked(path) {
+    const saved = savedInboxSelection();
+    return !saved.length || saved.includes(path) ? 'checked' : '';
+}
+
+function saveInboxSelection() {
+    localStorage.setItem('kapitanSelectedFiles', JSON.stringify(selectedFiles()));
+}
+
 async function loadInbox() {
     const box = document.getElementById('inboxList');
     if (!box) return;
@@ -57,7 +71,7 @@ function renderInbox(box) {
                     html += '<div style="margin-left:20px;">';
                     html += expanded.map(file => `
                         <label style="display:flex;align-items:center;gap:8px;padding:4px 6px;border-radius:6px;cursor:pointer;font-size:13px;">
-                            <input type="checkbox" class="inbox-file" value="${file.path}" checked onchange="updateSelectAll()">
+                            <input type="checkbox" class="inbox-file" value="${file.path}" ${inboxFileChecked(file.path)} onchange="updateSelectAll();saveInboxSelection()">
                             📄 ${file.name}
                         </label>
                     `).join('');
@@ -76,7 +90,7 @@ function renderInbox(box) {
         html += '<div style="font-size:12px;color:#888;margin-bottom:4px;font-weight:600;">ФАЙЛЫ</div>';
         html += _inboxData.files.map(f => `
             <label style="display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:6px;cursor:pointer;font-size:13px;">
-                <input type="checkbox" class="inbox-file" value="${f.name}" checked onchange="updateSelectAll()">
+                <input type="checkbox" class="inbox-file" value="${f.name}" ${inboxFileChecked(f.name)} onchange="updateSelectAll();saveInboxSelection()">
                 📄 ${f.name}
             </label>
         `).join('');

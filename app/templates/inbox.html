@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% set active = "inbox" %}
+
+{% block title %}Выгрузка из 1С — Kapitan Reports{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Выгрузка из 1С</h1>
+    <p>Загрузите исходные Excel-файлы и выбирайте их при формировании отчётов</p>
+</div>
+
+<div class="card">
+    <h2 style="margin-bottom:8px;">Добавить исходники</h2>
+    <p class="muted" style="margin-bottom:16px;">Файлы сохраняются в хранилище проекта и доступны на всех страницах анализа.</p>
+    <form id="inboxUploadForm" enctype="multipart/form-data">
+        <div class="upload-zone" id="inboxDropZone" onclick="document.getElementById('inboxFileInput').click()">
+            <input type="file" id="inboxFileInput" name="files" multiple accept=".xlsx,.xls">
+            <p>&#128206; Перетащите выгрузки 1С сюда или нажмите для выбора</p>
+            <p style="font-size:12px;margin-top:8px;">Поддерживаются .xlsx и .xls</p>
+        </div>
+        <div id="inboxUploadList" class="file-list"></div>
+        <button type="submit" class="btn btn-primary" style="margin-top:16px;">&#128228; Сохранить выгрузки</button>
+    </form>
+    <div id="inboxMessage" class="notice" hidden></div>
+</div>
+
+<div class="card">
+    <div class="section-heading">
+        <div>
+            <h2>Исходники для анализа</h2>
+            <p class="muted">Отмеченные файлы будут доступны для выбора на страницах отчётов.</p>
+        </div>
+        <button type="button" class="btn btn-secondary" onclick="loadInboxPage()">&#8635; Обновить</button>
+    </div>
+    <div class="inbox-toolbar">
+        <label><input type="checkbox" id="inboxSelectAll"> Выбрать все</label>
+        <span id="inboxCount" class="muted"></span>
+    </div>
+    <div id="inboxFiles" class="managed-files"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const inboxFileInput = document.getElementById('inboxFileInput');
+const inboxDropZone = document.getElementById('inboxDropZone');
+let selectedUploadFiles = [];
+
+inboxFileInput.addEventListener('change', () => setUploadFiles(inboxFileInput.files));
+inboxDropZone.addEventListener('dragover', event => { event.preventDefault(); inboxDropZone.classList.add('dragover'); });
+inboxDropZone.addEventListener('dragleave', () => inboxDropZone.classList.remove('dragover'));
+inboxDropZone.addEventListener('drop', event => {
+    event.preventDefault();
+    inboxDropZone.classList.remove('dragover');
+    setUploadFiles(event.dataTransfer.files);
+});
+
+function setUploadFiles(files) {
+    selectedUploadFiles = Array.from(files).filter(file => /\.xlsx?$/i.test(file.name));
+    document.getElementById('inboxUploadList').innerHTML = selectedUploadFiles.map(file =>
+        `<div class="file-row"><span>&#128196; ${escapeHtml(file.name)}</span><span class="muted">${formatSize(file.size)}</span></div>`
+    ).join('');
+}
+
+document.getElementById('inboxUploadForm').addEventListener('submit', async event => {
+    event.preventDefault();
+    if (!selectedUploadFiles.length) return showInboxMessage('Выберите хотя бы один Excel-файл.', true);
+    const formData = new FormData();
+    selectedUploadFiles.forEach(file => formData.append('files', file));
+    const response = await fetch('/upload/files', { method: 'POST', body: formData });
+    const result = await response.json();
+    if (!response.ok) return showInboxMessage(result.detail || 'Не удалось загрузить файлы.', true);
+    showInboxMessage(`Сохранено файлов: ${result.count}`);
+    selectedUploadFiles = [];
+    inboxFileInput.value = '';
+    document.getElementById('inboxUploadList').innerHTML = '';
+    loadInboxPage();
+});
+
+document.getElementById('inboxSelectAll').addEventListener('change', event => {
+    document.querySelectorAll('.managed-file input[type="checkbox"]').forEach(input => input.checked = event.target.checked);
+    localStorage.setItem('kapitanSelectedFiles', JSON.stringify(
+        Array.from(document.querySelectorAll('.managed-file input[type="checkbox"]:checked')).map(input => input.value)
+    ));
+});
+
+async function loadInboxPage() {
+    const response = await fetch('/api/inbox/files');
+    const data = await response.json();
+    const files = data.files || [];
+    document.getElementById('inboxCount').textContent = `${files.length} файлов`;
+    const saved = JSON.parse(localStorage.getItem('kapitanSelectedFiles') || '[]');
+    document.getElementById('inboxFiles').innerHTML = files.length ? files.map(file => `
+        <div class="managed-file">
+            <label><input type="checkbox" value="${escapeHtml(file.name)}" ${saved.includes(file.name) ? 'checked' : ''} onchange="saveManagedSelection()"> <span>&#128196; ${escapeHtml(file.name)}</span></label>
+            <span class="muted">${formatSize(file.size)}</span>
+            <button type="button" class="icon-btn" title="Удалить файл" onclick="deleteInboxFile('${encodeURIComponent(file.name)}')">&#128465;</button>
+        </div>`).join('') : '<div class="empty-state">Выгрузок пока нет.</div>';
+    document.getElementById('inboxSelectAll').checked = false;
+}
+
+function saveManagedSelection() {
+    localStorage.setItem('kapitanSelectedFiles', JSON.stringify(
+        Array.from(document.querySelectorAll('.managed-file input[type="checkbox"]:checked')).map(input => input.value)
+    ));
+}
+
+async function deleteInboxFile(encodedName) {
+    if (!confirm('Удалить этот исходник?')) return;
+    const response = await fetch('/upload/files/' + encodedName, { method: 'DELETE' });
+    if (response.ok) loadInboxPage();
+}
+
+function showInboxMessage(message, error = false) {
+    const box = document.getElementById('inboxMessage');
+    box.hidden = false; box.textContent = message; box.className = `notice ${error ? 'notice-error' : 'notice-success'}`;
+}
+function formatSize(size) { return `${(size / 1024).toFixed(1)} КБ`; }
+function escapeHtml(value) { return value.replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char])); }
+loadInboxPage();
+</script>
+{% endblock %}

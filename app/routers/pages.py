@@ -18,6 +18,15 @@ async def dashboard(request: Request):
     )
 
 
+@router.get("/inbox", response_class=HTMLResponse)
+async def inbox_page(request: Request):
+    return templates.TemplateResponse(
+        request=request,
+        name="inbox.html",
+        context={"active": "inbox"},
+    )
+
+
 @router.get("/report/{report_type}", response_class=HTMLResponse)
 async def report_page(request: Request, report_type: str):
     title = REPORT_TYPES.get(report_type, "Неизвестный отчёт")

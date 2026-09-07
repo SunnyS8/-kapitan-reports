@@ -57,8 +57,9 @@ def _resolve_input_files(selected: Optional[list[str]]) -> list[Path]:
     if selected:
         resolved = []
         for name in selected:
-            p = INBOX_DIR / name
-            if p.exists() and p.is_file() and p.suffix.lower() in (".xlsx", ".xls"):
+            p = (INBOX_DIR / name).resolve()
+            if (p.is_relative_to(INBOX_DIR.resolve()) and p.exists() and p.is_file()
+                    and p.suffix.lower() in (".xlsx", ".xls")):
                 resolved.append(p)
         if resolved:
             return resolved
