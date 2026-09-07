@@ -5,14 +5,37 @@
 
 {% block content %}
 <div class="page-header">
-    <h1>Отчёты для отдела продаж</h1>
-    <p>Выберите тип отчёта для формирования</p>
+    <div>
+        <span class="eyebrow">Центр управления</span>
+        <h1>Добро пожаловать в Kapitan Reports</h1>
+        <p>Соберите картину продаж, склада и финансов в одном рабочем пространстве.</p>
+    </div>
+    <a class="btn btn-primary page-header-action" href="/inbox">&#128228; Загрузить выгрузку</a>
 </div>
 
+<div class="dashboard-intro">
+    <div>
+        <span class="eyebrow eyebrow-light">Рабочий цикл</span>
+        <h2>От выгрузки 1С<br>до решения руководителя</h2>
+        <p>Загрузите исходники, выберите нужный срез и сформируйте отчёт с готовой аналитической запиской.</p>
+    </div>
+    <div class="intro-steps">
+        <div class="intro-step"><b>01</b><span>Выгрузка<br>из 1С</span></div>
+        <div class="intro-line"></div>
+        <div class="intro-step"><b>02</b><span>Срез<br>данных</span></div>
+        <div class="intro-line"></div>
+        <div class="intro-step"><b>03</b><span>Решение<br>по цифрам</span></div>
+    </div>
+</div>
+
+<div class="section-heading dashboard-section-heading">
+    <div><span class="eyebrow">Библиотека аналитики</span><h2>Все отчёты</h2></div>
+    <span class="report-count">{{ reports|length }} инструментов</span>
+</div>
 <div class="card-grid">
     {% for r in reports %}
     <a href="/report/{{ r.key }}" class="report-card">
-        <div class="icon">
+        <div class="report-card-top"><div class="icon">
             {% if r.key == "sales_clients" %}&#128100;
             {% elif r.key == "sales_products" %}&#128230;
             {% elif r.key == "inventory" %}&#128230;
@@ -25,7 +48,7 @@
             {% elif r.key == "edo" %}&#128196;
             {% elif r.key == "nelikvid" %}&#9888;
             {% else %}&#128196;{% endif %}
-        </div>
+        </div><span class="card-arrow">&#8599;</span></div>
         <h3>{{ r.name }}</h3>
         <p>
             {% if r.key == "sales_clients" %}Выручка, кол-во, средний чек по клиентам
