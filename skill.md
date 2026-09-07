@@ -13,6 +13,15 @@ python run.py
 
 Откройте http://localhost:8000
 
+## Деплой на Railway
+
+1. Подключите GitHub-репозиторий `SunnyS8/-kapitan-reports` в Railway и выберите Deploy.
+2. В сервисе создайте **Volume** с mount path `/app/data`.
+3. Добавьте переменные окружения `DATA_DIR=/app/data` и `BASE_KNOWLEDGE=/app/data`.
+4. Railway использует `railway.toml` и запускает приложение через `uvicorn` на `$PORT`.
+
+AI-режим через Hermes на Railway отключён, пока в контейнер не установлен Hermes и не задана переменная `HERMES_EXE`.
+
 ## Стек
 - FastAPI + Jinja2 + Bootstrap-стили (custom CSS)
 - openpyxl + pandas (парсинг Excel)

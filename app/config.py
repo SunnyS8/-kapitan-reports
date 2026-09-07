@@ -1,16 +1,30 @@
 from pathlib import Path
+import os
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-UPLOADS_DIR = BASE_DIR / "uploads"
-REPORTS_DIR = BASE_DIR / "reports"
+_default_data_path = "/app/data" if os.environ.get("RAILWAY_ENVIRONMENT") else str(BASE_DIR)
+DATA_DIR = Path(os.environ.get("DATA_DIR", _default_data_path))
+UPLOADS_DIR = DATA_DIR / "uploads"
+REPORTS_DIR = DATA_DIR / "reports"
 
 UPLOADS_DIR.mkdir(exist_ok=True)
 REPORTS_DIR.mkdir(exist_ok=True)
 
-# --- База знаний (вне проекта Kapitan) ---
-BASE_KNOWLEDGE = Path(r"C:\Users\User\Desktop\Моя база знаний")
+# --- База знаний ---
+# Локально используется каталог базы знаний, а на Railway путь задаётся
+# переменной BASE_KNOWLEDGE и должен указывать на Persistent Volume.
+_default_knowledge_path = (
+    str(DATA_DIR)
+    if os.environ.get("RAILWAY_ENVIRONMENT")
+    else r"C:\Users\User\Desktop\Моя база знаний"
+)
+_knowledge_path = os.environ.get("BASE_KNOWLEDGE", _default_knowledge_path)
+BASE_KNOWLEDGE = Path(_knowledge_path)
 KNOWLEDGE_ANALYTICS = BASE_KNOWLEDGE / "06 - Аналитика и отчёты"
 KNOWLEDGE_MONTHLY = BASE_KNOWLEDGE / "07 - Ежемесячные отчёты"
+
+for _d in (BASE_KNOWLEDGE, KNOWLEDGE_ANALYTICS, KNOWLEDGE_MONTHLY):
+    _d.mkdir(parents=True, exist_ok=True)
 
 # Папка входных выгрузок из 1С + справочники (внутри проекта)
 INBOX_DIR = BASE_DIR / "inbox"

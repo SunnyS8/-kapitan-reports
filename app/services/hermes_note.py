@@ -6,12 +6,13 @@
 """
 import json
 import os
+import shutil
 import subprocess
 from datetime import datetime
 
 from app.config import REPORT_TYPES
 
-HERMES_EXE = r"C:\Users\User\AppData\Local\hermes\hermes-agent\venv\Scripts\hermes.exe"
+HERMES_EXE = os.environ.get("HERMES_EXE", "hermes")
 HERMES_PROFILE = "analyst"
 _TIMEOUT_S = 180
 _MAX_PROMPT_CHARS = 12000
@@ -114,6 +115,11 @@ def build_prompt(report_type: str, result: dict) -> str:
 
 def build_ai_note(report_type: str, result: dict) -> str:
     """Возвращает Markdown-записку от аналитика (raw текст из Hermes)."""
+    if shutil.which(HERMES_EXE) is None:
+        raise RuntimeError(
+            "Hermes недоступен на сервере. Установите Hermes и задайте HERMES_EXE."
+        )
+
     prompt = build_prompt(report_type, result)
     env = dict(os.environ)
     env["HERMES_PROFILE"] = HERMES_PROFILE
