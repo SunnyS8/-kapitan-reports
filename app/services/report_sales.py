@@ -2,6 +2,8 @@
 import pandas as pd
 from pathlib import Path
 
+from app.services.excel_parser import compute_date_period
+
 
 def generate_sales_clients(filepaths: list[Path]) -> dict:
     from app.services.excel_parser import read_sales_excel
@@ -22,6 +24,8 @@ def generate_sales_clients(filepaths: list[Path]) -> dict:
 
     df = pd.concat(frames, ignore_index=True)
 
+    period = compute_date_period(df)
+
     if "client" not in df.columns:
         available = list(df.columns)
         return {
@@ -29,10 +33,25 @@ def generate_sales_clients(filepaths: list[Path]) -> dict:
             "data": [], "chart": {},
         }
 
+    # Дополнительные поля клиента (3.4): берём первое непустое значение по клиенту.
+    extra_fields = {}
+    for col, field in (("address", "address"), ("city", "city"),
+                       ("organization", "organization"), ("manager", "manager")):
+        if col in df.columns:
+            s = (df.groupby("client", dropna=False)[col]
+                   .agg(lambda x: next((v for v in x if pd.notna(v) and str(v).strip() and str(v).lower() not in ("nan", "none", "")), ""))
+                   .reset_index(name=f"__{field}"))
+            extra_fields[field] = s
+
     grouped = df.groupby("client", dropna=False).agg(
         revenue=("sum", "sum"),
         sales_count=("sum", "count"),
     ).reset_index()
+
+    for field, s in extra_fields.items():
+        grouped = grouped.merge(s, on="client", how="left")
+        grouped[field] = grouped[f"__{field}"].fillna("")
+        grouped = grouped.drop(columns=[f"__{field}"])
 
     grouped["avg_check"] = grouped["revenue"] / grouped["sales_count"].replace(0, 1)
     total_revenue = grouped["revenue"].sum()
@@ -41,15 +60,22 @@ def generate_sales_clients(filepaths: list[Path]) -> dict:
 
     data = []
     for _, row in grouped.iterrows():
-        data.append({
+        item = {
             "client": str(row["client"]) if pd.notna(row["client"]) else "Без имени",
             "revenue": round(float(row["revenue"]), 2),
             "sales_count": int(row["sales_count"]),
             "avg_check": round(float(row["avg_check"]), 2),
             "share": float(row["share"]),
-        })
+        }
+        for field in ("address", "city", "organization", "manager"):
+            if field in grouped.columns:
+                item[field] = str(row[field])
+        data.append(item)
 
     summary = {
+        "generated_at": period["generated_at"],
+        "period_start": period["period_start"],
+        "period_end": period["period_end"],
         "total_revenue": round(float(total_revenue), 2),
         "total_clients": len(grouped),
         "total_sales": int(grouped["sales_count"].sum()),

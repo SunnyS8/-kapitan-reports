@@ -31,6 +31,7 @@
 
 <div id="result" style="display:none;">
     <div class="summary-row" id="summary"></div>
+    {% include "note.html" %}
     <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
             <h2>Детализация по клиентам</h2>
@@ -110,6 +111,7 @@ async function generateReport() {
     }
 
     document.getElementById('result').style.display = 'block';
+    showNoteBlock();
     document.getElementById('summary').innerHTML = `
         <div class="summary-card"><div class="label">Выручка</div><div class="value blue">${fmt(s.total_revenue)} &#8381;</div></div>
         <div class="summary-card"><div class="label">Клиентов</div><div class="value">${s.total_clients || 0}</div></div>

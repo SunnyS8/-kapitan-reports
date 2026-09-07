@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% set active = "clients" %}
+
+{% block title %}Реестр клиентов — Kapitan Reports{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Реестр клиентов</h1>
+    <p>Менеджеры, города, адреса, телефоны и плательщики по клиентам</p>
+</div>
+
+<div class="card">
+    <h2 style="margin-bottom:16px;">Выбор выгрузок из 1С</h2>
+    <p style="font-size:13px;color:#666;margin:0 0 12px;">Выберите файлы справочника клиентов из папки <strong>inbox</strong> проекта Kapitan Reports. Справочники хранятся в подпапке <strong>inbox/Справочники</strong>.</p>
+    <div id="inboxList" style="max-height:240px;overflow:auto;border:1px solid var(--border,#e2e8f0);border-radius:8px;padding:8px;"></div>
+    <div style="margin-top:12px;font-size:13px;">
+        <label><input type="checkbox" id="selectAll" onchange="toggleAll(this.checked)"> Выбрать все</label>
+    </div>
+    <div style="margin-top:16px;">
+        <button type="button" class="btn btn-primary" onclick="generateReport()">&#9654; Сформировать отчёт</button>
+    </div>
+</div>
+
+<div id="result" style="display:none;">
+    <div class="summary-row" id="summary"></div>
+    {% include "note.html" %}
+    <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <h2>Реестр клиентов</h2>
+            <a id="downloadLink" class="btn btn-success" href="#">&#128229; Скачать Excel</a>
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Менеджер</th>
+                        <th>Клиент</th>
+                        <th>Город</th>
+                        <th>Адрес</th>
+                        <th>Телефон</th>
+                        <th>Плательщик</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function generateReport() {
+    const names = selectedFiles();
+    if (!names.length) { alert('Выберите хотя бы один файл'); return; }
+    const res = await fetch('/api/generate/clients', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ files: names })
+    });
+    if (!res.ok) { let m='Ошибка'; try { const j=await res.json(); m=j.detail||m; } catch(e){} alert(m); return; }
+    const result = await res.json();
+
+    const s = result.summary;
+    document.getElementById('summary').innerHTML = `
+        <div class="summary-card"><div class="label">Всего клиентов</div><div class="value blue">${s.total_clients}</div></div>
+    `;
+
+    document.getElementById('tableBody').innerHTML = result.data.map(d => `
+        <tr>
+            <td>${d['Менеджер'] || ''}</td>
+            <td><strong>${d['Клиент'] || ''}</strong></td>
+            <td>${d['Город'] || ''}</td>
+            <td>${d['Адрес'] || ''}</td>
+            <td>${d['Телефон'] || ''}</td>
+            <td>${d['Плательщик'] || ''}</td>
+        </tr>
+    `).join('');
+
+    if (result.filename) document.getElementById('downloadLink').href = '/api/download/' + result.filename;
+    document.getElementById('result').style.display = 'block';
+    showNoteBlock();
+}
+
+function fmt(n) { if (n == null) return ''; return new Intl.NumberFormat('ru-RU').format(n); }
+
+loadInbox();
+</script>
+{% endblock %}

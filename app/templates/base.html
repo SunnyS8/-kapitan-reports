@@ -24,6 +24,12 @@
             <a href="/report/sales_products" class="{% if active == 'sales_products' %}active{% endif %}">
                 <span class="icon">&#9654;</span> Продажи по товарам
             </a>
+            <a href="/report/top_products" class="{% if active == 'top_products' %}active{% endif %}">
+                <span class="icon">&#9654;</span> Топ продаж по номенклатуре
+            </a>
+            <a href="/report/top_clients" class="{% if active == 'top_clients' %}active{% endif %}">
+                <span class="icon">&#9654;</span> Топ клиенты в разрезе номенклатуры
+            </a>
             <a href="/report/dynamics" class="{% if active == 'dynamics' %}active{% endif %}">
                 <span class="icon">&#9650;</span> Динамика продаж
             </a>
@@ -34,12 +40,25 @@
             <a href="/report/inventory" class="{% if active == 'inventory' %}active{% endif %}">
                 <span class="icon">&#9632;</span> Остатки на складах
             </a>
+            <a href="/report/stock_dynamics" class="{% if active == 'stock_dynamics' %}active{% endif %}">
+                <span class="icon">&#9632;</span> Динамика по складу
+            </a>
             <a href="/report/nelikvid" class="{% if active == 'nelikvid' %}active{% endif %}">
                 <span class="icon">&#9632;</span> Неликвиды
             </a>
             <div class="sidebar-section">Финансы</div>
             <a href="/report/debt" class="{% if active == 'debt' %}active{% endif %}">
                 <span class="icon">&#9632;</span> Неоплаченные счета
+            </a>
+            <a href="/report/debt_manager" class="{% if active == 'debt_manager' %}active{% endif %}">
+                <span class="icon">&#9632;</span> Задолженность клиента
+            </a>
+            <div class="sidebar-section">Клиенты и ЭДО</div>
+            <a href="/report/clients" class="{% if active == 'clients' %}active{% endif %}">
+                <span class="icon">&#9632;</span> Реестр клиентов
+            </a>
+            <a href="/report/edo" class="{% if active == 'edo' %}active{% endif %}">
+                <span class="icon">&#9632;</span> Незавершённые ЭДО
             </a>
         </nav>
     </aside>
@@ -48,6 +67,7 @@
         {% block content %}{% endblock %}
     </main>
 
+    <script src="/static/inbox.js"></script>
     {% block scripts %}{% endblock %}
 </body>
 </html>

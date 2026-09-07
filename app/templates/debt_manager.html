@@ -1,17 +1,17 @@
 {% extends "base.html" %}
-{% set active = "inventory" %}
+{% set active = "debt_manager" %}
 
-{% block title %}Остатки на складах — Kapitan Reports{% endblock %}
+{% block title %}Задолженность клиента — Kapitan Reports{% endblock %}
 
 {% block content %}
 <div class="page-header">
-    <h1>Остатки на складах</h1>
-    <p>Текущие остатки по складам, сумма, просроченные позиции</p>
+    <h1>Задолженность клиента</h1>
+    <p>Долги по клиентам и менеджерам, разбитые по срокам («как у Сергея»)</p>
 </div>
 
 <div class="card">
     <h2 style="margin-bottom:16px;">Выбор выгрузок из 1С</h2>
-    <p style="font-size:13px;color:#666;margin:0 0 12px;">Выберите файлы остатков из папки <strong>inbox</strong> проекта Kapitan Reports. Справочники хранятся в подпапке <strong>inbox/Справочники</strong>.</p>
+    <p style="font-size:13px;color:#666;margin:0 0 12px;">Выберите файлы счетов из папки <strong>inbox</strong> проекта Kapitan Reports. Справочники хранятся в подпапке <strong>inbox/Справочники</strong>.</p>
     <div id="inboxList" style="max-height:240px;overflow:auto;border:1px solid var(--border,#e2e8f0);border-radius:8px;padding:8px;"></div>
     <div style="margin-top:12px;font-size:13px;">
         <label><input type="checkbox" id="selectAll" onchange="toggleAll(this.checked)"> Выбрать все</label>
@@ -26,7 +26,7 @@
     {% include "note.html" %}
     <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-            <h2>Детализация по складам</h2>
+            <h2>Задолженность по бакетам</h2>
             <a id="downloadLink" class="btn btn-success" href="#">&#128229; Скачать Excel</a>
         </div>
         <div class="chart-container" style="margin-bottom:20px;">
@@ -36,14 +36,15 @@
             <table>
                 <thead>
                     <tr>
-                        <th>Склад</th>
-                        <th>Товар</th>
-                        <th>Характеристика</th>
-                        <th>Нач.остаток</th>
-                        <th>Приход</th>
-                        <th>Расход</th>
-                        <th>Кон.остаток</th>
-                        <th>Резерв</th>
+                        <th>Менеджер</th>
+                        <th>Клиент</th>
+                        <th>Организация</th>
+                        <th>Отсрочка, дн</th>
+                        <th>Общий долг</th>
+                        <th>Долг 1-10</th>
+                        <th>Долг 11-15</th>
+                        <th>Долг 16-29</th>
+                        <th>Долг свыше 30</th>
                     </tr>
                 </thead>
                 <tbody id="tableBody"></tbody>
@@ -60,7 +61,7 @@ let chartInst = null;
 async function generateReport() {
     const names = selectedFiles();
     if (!names.length) { alert('Выберите хотя бы один файл'); return; }
-    const res = await fetch('/api/generate/inventory', {
+    const res = await fetch('/api/generate/debt_manager', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ files: names })
@@ -69,28 +70,26 @@ async function generateReport() {
     const result = await res.json();
 
     const s = result.summary;
-    let whHtml = '';
-    if (s.warehouses) {
-        for (const [wh, v] of Object.entries(s.warehouses)) {
-            whHtml += `<div class="summary-card"><div class="label">${wh}</div><div class="value blue">${fmt(v.end_balance)}</div></div>`;
-        }
-    }
     document.getElementById('summary').innerHTML = `
-        <div class="summary-card"><div class="label">Всего позиций</div><div class="value">${s.total_items}</div></div>
-        <div class="summary-card"><div class="label">Кон.остаток</div><div class="value blue">${fmt(s.total_end_balance)}</div></div>
-        ${whHtml}
+        <div class="summary-card"><div class="label">Общий долг</div><div class="value blue">${fmt(s.total_debt)}</div></div>
+        <div class="summary-card"><div class="label">1-10 дн</div><div class="value">${fmt(s.bucket_1_10)}</div></div>
+        <div class="summary-card"><div class="label">11-15 дн</div><div class="value">${fmt(s.bucket_11_15)}</div></div>
+        <div class="summary-card"><div class="label">16-29 дн</div><div class="value">${fmt(s.bucket_16_29)}</div></div>
+        <div class="summary-card"><div class="label">свыше 30</div><div class="value danger">${fmt(s.bucket_over_30)}</div></div>
+        <div class="summary-card"><div class="label">Клиентов</div><div class="value">${s.clients}</div></div>
     `;
 
     document.getElementById('tableBody').innerHTML = result.data.map(d => `
         <tr>
-            <td>${d.warehouse || ''}</td>
-            <td><strong>${d.product || ''}</strong></td>
-            <td>${d.characteristic || ''}</td>
-            <td>${d.start_balance || 0}</td>
-            <td>${d.income || 0}</td>
-            <td>${d.outcome || 0}</td>
-            <td>${d.end_balance || 0}</td>
-            <td>${d.reserve || 0}</td>
+            <td>${d['Менеджер'] || ''}</td>
+            <td><strong>${d['Клиент'] || ''}</strong></td>
+            <td>${d['Организация'] || ''}</td>
+            <td>${d['Отсрочка, дн'] || 0}</td>
+            <td><strong>${fmt(d['Общий долг'])}</strong></td>
+            <td>${fmt(d['Долг 1-10'])}</td>
+            <td>${fmt(d['Долг 11-15'])}</td>
+            <td>${fmt(d['Долг 16-29'])}</td>
+            <td>${fmt(d['Долг свыше 30'])}</td>
         </tr>
     `).join('');
 
@@ -98,7 +97,7 @@ async function generateReport() {
     if (result.chart.labels && result.chart.labels.length) {
         chartInst = new Chart(document.getElementById('chart'), {
             type: 'bar',
-            data: { labels: result.chart.labels, datasets: [{ label: 'Остаток', data: result.chart.values, backgroundColor: '#3b82f6' }] },
+            data: { labels: result.chart.labels, datasets: [{ label: 'Долг', data: result.chart.values, backgroundColor: '#ef4444' }] },
             options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
         });
     }

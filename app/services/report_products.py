@@ -2,6 +2,8 @@
 import pandas as pd
 from pathlib import Path
 
+from app.services.excel_parser import compute_date_period
+
 
 def generate_sales_products(filepaths: list[Path]) -> dict:
     from app.services.excel_parser import read_sales_excel
@@ -21,6 +23,8 @@ def generate_sales_products(filepaths: list[Path]) -> dict:
         return {"summary": {"error": "Не удалось распарсить файлы", "debug": debug_all}, "data": [], "chart": {}}
 
     df = pd.concat(frames, ignore_index=True)
+
+    period = compute_date_period(df)
 
     if "product" not in df.columns:
         available = list(df.columns)
@@ -61,6 +65,9 @@ def generate_sales_products(filepaths: list[Path]) -> dict:
 
     abc_counts = grouped["category"].value_counts().to_dict()
     summary = {
+        "generated_at": period["generated_at"],
+        "period_start": period["period_start"],
+        "period_end": period["period_end"],
         "total_revenue": round(float(total), 2),
         "total_products": len(grouped),
         "count_a": abc_counts.get("A", 0),

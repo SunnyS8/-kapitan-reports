@@ -1,0 +1,180 @@
+"""Отчёты: Топ продаж по номенклатуре (3.1) и Топ клиенты в разрезе номенклатуры (3.2)."""
+import pandas as pd
+from pathlib import Path
+
+from app.config import INTERNAL_CLIENTS, INTERNAL_CLIENT_TAG
+from app.services.excel_parser import compute_date_period
+
+TOP_N = 50
+
+
+def _is_internal_client(value) -> bool:
+    """Внутренние контрагенты (для НДС): не входят в общие продажи."""
+    if value is None:
+        return False
+    name = " ".join(str(value).strip().replace("\u00a0", " ").split()).lower()
+    return any(token in name for token in INTERNAL_CLIENTS)
+
+
+def _load_sales(filepaths: list[Path]) -> tuple[pd.DataFrame, list]:
+    from app.services.excel_parser import read_sales_excel
+
+    frames = []
+    debug_all = []
+    for fp in filepaths:
+        try:
+            df, debug = read_sales_excel(fp)
+            frames.append(df)
+            debug_all.append(debug)
+        except Exception as e:
+            debug_all.append({"filename": fp.name, "error": str(e)})
+            continue
+
+    if not frames:
+        raise ValueError("Не удалось распарсить файлы продаж")
+
+    df = pd.concat(frames, ignore_index=True)
+    return df, debug_all
+
+
+def _round(v) -> float:
+    try:
+        return round(float(v), 2)
+    except Exception:
+        return 0.0
+
+
+def generate_top_products(filepaths: list[Path]) -> dict:
+    """3.1 Топ продаж по номенклатуре: Номенклатура | Количество | Сумма."""
+    df, debug_all = _load_sales(filepaths)
+
+    if "product" not in df.columns:
+        return {"summary": {"error": "Колонка 'Номенклатура' не найдена", "debug": debug_all}, "data": [], "chart": {}}
+
+    agg = {"sum": ("sum", "sum")}
+    if "quantity" in df.columns:
+        agg["quantity"] = ("quantity", "sum")
+    if "quantity_m2" in df.columns:
+        agg["quantity_m2"] = ("quantity_m2", "sum")
+
+    grouped = df.groupby("product", dropna=False).agg(**agg).reset_index()
+    grouped = grouped.sort_values("sum", ascending=False)
+
+    total = float(grouped["sum"].sum())
+    top = grouped.head(TOP_N).copy()
+
+    data = []
+    for _, row in top.iterrows():
+        item = {
+            "Номенклатура": str(row["product"]) if pd.notna(row["product"]) else "Без названия",
+            "Количество": int(row.get("quantity", 0)),
+            "Сумма": _round(row["sum"]),
+        }
+        if "quantity_m2" in row.index:
+            item["Количество м2"] = _round(row.get("quantity_m2", 0))
+        data.append(item)
+
+    period = compute_date_period(df)
+
+    summary = {
+        "generated_at": period["generated_at"],
+        "period_start": period["period_start"],
+        "period_end": period["period_end"],
+        "total_revenue": _round(total),
+        "total_products": len(grouped),
+        "top_shown": len(data),
+        "top_revenue_share": round(float(top["sum"].sum() / total * 100), 1) if total else 0,
+        "debug": debug_all,
+    }
+
+    chart = {
+        "labels": [d["Номенклатура"][:25] for d in data[:15]],
+        "values": [d["Сумма"] for d in data[:15]],
+    }
+
+    return {"summary": summary, "data": data, "chart": chart}
+
+
+def generate_top_clients(filepaths: list[Path]) -> dict:
+    """3.2 Топ клиенты в разрезе номенклатуры: Клиент | Номенклатура | Шт/кв.м | Сумма.
+
+    Внутренние контрагенты (для НДС) выводятся отдельной строкой с пометкой
+    и не учитываются в общих результатах (общая выручка, топ, диаграмма).
+    """
+    df, debug_all = _load_sales(filepaths)
+
+    period = compute_date_period(df)
+
+    for col in ("client", "product", "sum"):
+        if col not in df.columns:
+            return {"summary": {"error": f"Колонка '{col}' не найдена", "debug": debug_all}, "data": [], "chart": {}}
+
+    agg = {"sum": ("sum", "sum")}
+    if "quantity" in df.columns:
+        agg["quantity"] = ("quantity", "sum")
+    if "quantity_m2" in df.columns:
+        agg["quantity_m2"] = ("quantity_m2", "sum")
+
+    df["is_internal"] = df["client"].map(_is_internal_client)
+    internal_df = df[df["is_internal"]]
+    df = df[~df["is_internal"]].drop(columns=["is_internal"])
+
+    grouped = df.groupby(["client", "product"], dropna=False).agg(**agg).reset_index()
+    grouped = grouped.sort_values("sum", ascending=False)
+
+    total = float(grouped["sum"].sum())
+    top = grouped.head(TOP_N).copy()
+
+    data = []
+    for _, row in top.iterrows():
+        item = {
+            "Клиент": str(row["client"]) if pd.notna(row["client"]) else "Без имени",
+            "Номенклатура": str(row["product"]) if pd.notna(row["product"]) else "Без названия",
+            "Шт": int(row.get("quantity", 0)),
+            "Сумма": _round(row["sum"]),
+        }
+        if "quantity_m2" in row.index:
+            item["Кв.м"] = _round(row.get("quantity_m2", 0))
+        data.append(item)
+
+    # Внутренние контрагенты — отдельным блоком с пометкой
+    internal_rows = []
+    if not internal_df.empty:
+        ia = {"sum": ("sum", "sum")}
+        if "quantity" in internal_df.columns:
+            ia["quantity"] = ("quantity", "sum")
+        if "quantity_m2" in internal_df.columns:
+            ia["quantity_m2"] = ("quantity_m2", "sum")
+        ig = internal_df.groupby(["client", "product"], dropna=False).agg(**ia).reset_index()
+        ig = ig.sort_values("sum", ascending=False)
+        for _, row in ig.iterrows():
+            item = {
+                "Клиент": str(row["client"]) if pd.notna(row["client"]) else "Без имени",
+                "Номенклатура": str(row["product"]) if pd.notna(row["product"]) else "Без названия",
+                "Шт": int(row.get("quantity", 0)),
+                "Сумма": _round(row["sum"]),
+                "Пометка": INTERNAL_CLIENT_TAG,
+            }
+            if "quantity_m2" in row.index:
+                item["Кв.м"] = _round(row.get("quantity_m2", 0))
+            internal_rows.append(item)
+
+    summary = {
+        "generated_at": period["generated_at"],
+        "period_start": period["period_start"],
+        "period_end": period["period_end"],
+        "total_revenue": _round(total),
+        "clients_in_report": int(df["client"].nunique()),
+        "top_shown": len(data),
+        "top_revenue_share": round(float(top["sum"].sum() / total * 100), 1) if total else 0,
+        "internal_total": _round(float(internal_df["sum"].sum())) if not internal_df.empty else 0.0,
+        "internal_count": int(internal_df["client"].nunique()) if not internal_df.empty else 0,
+        "debug": debug_all,
+    }
+
+    chart = {
+        "labels": [d["Клиент"][:25] for d in data[:15]],
+        "values": [d["Сумма"] for d in data[:15]],
+    }
+
+    return {"summary": summary, "data": data, "chart": chart, "internal": internal_rows}

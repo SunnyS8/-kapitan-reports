@@ -16,9 +16,13 @@
             {% if r.key == "sales_clients" %}&#128100;
             {% elif r.key == "sales_products" %}&#128230;
             {% elif r.key == "inventory" %}&#128230;
+            {% elif r.key == "stock_dynamics" %}&#128200;
             {% elif r.key == "dynamics" %}&#128200;
             {% elif r.key == "forecast" %}&#127919;
             {% elif r.key == "debt" %}&#128176;
+            {% elif r.key == "debt_manager" %}&#128176;
+            {% elif r.key == "clients" %}&#128100;
+            {% elif r.key == "edo" %}&#128196;
             {% elif r.key == "nelikvid" %}&#9888;
             {% else %}&#128196;{% endif %}
         </div>
@@ -27,9 +31,13 @@
             {% if r.key == "sales_clients" %}Выручка, кол-во, средний чек по клиентам
             {% elif r.key == "sales_products" %}ABC-анализ, топ товары, доля в портфеле
             {% elif r.key == "inventory" %}Текущие остатки, движение по складам
+            {% elif r.key == "stock_dynamics" %}Движение номенклатуры: приход, остатки, резерв
             {% elif r.key == "dynamics" %}Сравнение периодов, % изменения, тренд
             {% elif r.key == "forecast" %}Факт vs план, % выполнения
             {% elif r.key == "debt" %}Дебиторка, просрочка по счетам
+            {% elif r.key == "debt_manager" %}Долги по клиентам и менеджерам по срокам
+            {% elif r.key == "clients" %}Менеджеры, города, адреса, телефоны клиентов
+            {% elif r.key == "edo" %}Незавершённые документы электронного обмена
             {% elif r.key == "nelikvid" %}Медленно продающиеся товары, формула расчёта
             {% endif %}
         </p>

@@ -25,6 +25,7 @@
 
 <div id="result" style="display:none;">
     <div class="summary-row" id="summary"></div>
+    {% include "note.html" %}
     <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
             <h2>Сравнение периодов</h2>
@@ -84,6 +85,7 @@ async function generateReport() {
 
     if (result.filename) document.getElementById('downloadLink').href = '/api/download/' + result.filename;
     document.getElementById('result').style.display = 'block';
+    showNoteBlock();
 }
 
 function fmt(n) { return new Intl.NumberFormat('ru-RU').format(n); }

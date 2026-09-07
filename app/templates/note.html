@@ -1,0 +1,94 @@
+<div class="card" id="noteBlock" style="margin-top:20px;display:none;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+        <h2 style="margin:0;">&#128220; Аналитическая записка</h2>
+        <div style="display:flex;gap:8px;">
+            <button type="button" class="btn" id="noteAutoBtn" onclick="generateNote(false)">&#9881; Авто (по правилам)</button>
+            <button type="button" class="btn btn-primary" id="noteAiBtn" onclick="generateNote(true)">&#129504; От аналитика</button>
+        </div>
+    </div>
+    <div id="noteStatus" style="font-size:13px;color:#888;margin-bottom:10px;display:none;">
+        <span id="noteStatusText"></span>
+    </div>
+    <textarea id="noteText" readonly style="width:100%;min-height:220px;font-family:monospace;font-size:13px;line-height:1.5;border:1px solid var(--border,#e2e8f0);border-radius:8px;padding:10px;box-sizing:border-box;background:#fafafa;" placeholder="Сформируйте записку — авто по правилам или от аналитика."></textarea>
+    <div style="margin-top:10px;font-size:13px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+        <a id="noteMdLink" class="btn btn-success" href="#" style="display:none;">&#128229; Сохранить .md в базу знаний</a>
+        <button type="button" class="btn" onclick="copyNote()">&#128203; Копировать</button>
+        <button type="button" class="btn" onclick="downloadNoteTxt()">&#11015; Скачать .txt</button>
+        <span id="noteSavedPath" style="color:#2e7d32;font-size:12px;"></span>
+    </div>
+</div>
+
+<script>
+let lastNoteText = '';
+let lastNoteFilename = '';
+
+function noteSelectedFiles() {
+    return Array.from(document.querySelectorAll('.inbox-file:checked')).map(c => c.value);
+}
+
+async function generateNote(ai) {
+    const names = noteSelectedFiles();
+    if (!names.length) { alert('Выберите хотя бы один файл выгрузки'); return; }
+    const st = document.getElementById('noteStatus');
+    const txt = document.getElementById('noteStatusText');
+    st.style.display = 'block';
+    txt.textContent = ai ? 'Формируем записку от аналитика (~1-3 минуты)…' : 'Формируем авто-записку…';
+    document.getElementById('noteAiBtn').disabled = true;
+    document.getElementById('noteAutoBtn').disabled = true;
+    try {
+        const res = await fetch('/api/analyze/{{ report_type }}', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ files: names, ai: ai })
+        });
+        if (!res.ok) { let m = 'Ошибка'; try { const j = await res.json(); m = j.detail || m; } catch (e) {} throw new Error(m); }
+        const result = await res.json();
+        lastNoteText = result.note || '';
+        lastNoteFilename = result.filename || '';
+        document.getElementById('noteText').value = lastNoteText;
+        const link = document.getElementById('noteMdLink');
+        if (result.filename) {
+            link.style.display = 'inline-block';
+            link.href = '/api/note_file/' + encodeURIComponent(result.filename);
+            document.getElementById('noteSavedPath').textContent = 'Сохранено: ' + result.filename;
+        } else {
+            link.style.display = 'none';
+            document.getElementById('noteSavedPath').textContent = '';
+        }
+        txt.textContent = result.mode === 'ai'
+            ? 'Готово (аналитик).'
+            : result.mode === 'ai_error'
+                ? 'Ошибка аналитика — выведен запасной текст.'
+                : 'Готово (авто).';
+    } catch (e) {
+        txt.textContent = 'Ошибка: ' + e.message;
+    } finally {
+        document.getElementById('noteAiBtn').disabled = false;
+        document.getElementById('noteAutoBtn').disabled = false;
+    }
+}
+
+function copyNote() {
+    const txt = document.getElementById('noteText');
+    if (!txt.value) { alert('Сначала сформируйте записку'); return; }
+    txt.select();
+    txt.setSelectionRange(0, 999999);
+    document.execCommand('copy');
+    document.getElementById('noteSavedPath').textContent = 'Скопировано.';
+}
+
+function downloadNoteTxt() {
+    const txt = document.getElementById('noteText');
+    if (!txt.value) { alert('Сначала сформируйте записку'); return; }
+    const blob = new Blob([txt.value], { type: 'text/plain;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = (lastNoteFilename || 'записка') + '.txt';
+    a.click();
+    URL.revokeObjectURL(a.href);
+}
+
+function showNoteBlock() {
+    document.getElementById('noteBlock').style.display = 'block';
+}
+</script>

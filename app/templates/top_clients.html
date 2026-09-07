@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% set active = "top_clients" %}
+
+{% block title %}Топ клиенты в разрезе номенклатуры — Kapitan Reports{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Топ клиенты в разрезе номенклатуры</h1>
+    <p>Сводка по клиентам: номенклатура, шт/кв.м, сумма (за период)</p>
+</div>
+
+<div class="card">
+    <h2 style="margin-bottom:16px;">Выбор выгрузок из 1С</h2>
+    <p style="font-size:13px;color:#666;margin:0 0 12px;">Выберите файлы продаж из папки <strong>inbox</strong> проекта Kapitan Reports. Справочники хранятся в подпапке <strong>inbox/Справочники</strong>.</p>
+    <div id="inboxList" style="max-height:240px;overflow:auto;border:1px solid var(--border,#e2e8f0);border-radius:8px;padding:8px;"></div>
+    <div style="margin-top:12px;font-size:13px;">
+        <label><input type="checkbox" id="selectAll" onchange="toggleAll(this.checked)"> Выбрать все</label>
+    </div>
+    <div style="margin-top:16px;">
+        <button type="button" class="btn btn-primary" onclick="generateReport()">&#9654; Сформировать отчёт</button>
+    </div>
+</div>
+
+<div id="result" style="display:none;">
+    <div class="summary-row" id="summary"></div>
+    {% include "note.html" %}
+    <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <h2>Топ по клиентам</h2>
+            <a id="downloadLink" class="btn btn-success" href="#">&#128229; Скачать Excel</a>
+        </div>
+        <div class="chart-container" style="margin-bottom:20px;">
+            <canvas id="chart"></canvas>
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Клиент</th>
+                        <th>Номенклатура</th>
+                        <th>Шт</th>
+                        <th>Кв.м</th>
+                        <th>Сумма</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
+        <div id="internalBlock" style="display:none;margin-top:24px;">
+            <h2>Внутренние контрагенты (НДС)</h2>
+            <p style="font-size:13px;color:#666;margin:0 0 12px;">Выводятся отдельно и не входят в общие результаты.</p>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Клиент</th>
+                            <th>Номенклатура</th>
+                            <th>Шт</th>
+                            <th>Кв.м</th>
+                            <th>Сумма</th>
+                            <th>Пометка</th>
+                        </tr>
+                    </thead>
+                    <tbody id="internalBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let chartInst = null;
+
+async function generateReport() {
+    const names = selectedFiles();
+    if (!names.length) { alert('Выберите хотя бы один файл'); return; }
+    const res = await fetch('/api/generate/top_clients', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ files: names })
+    });
+    if (!res.ok) { let m='Ошибка'; try { const j=await res.json(); m=j.detail||m; } catch(e){} alert(m); return; }
+    const result = await res.json();
+
+    const s = result.summary;
+    document.getElementById('summary').innerHTML = `
+        <div class="summary-card"><div class="label">Период</div><div class="value">${s.period_start || '—'} — ${s.period_end || '—'}</div></div>
+        <div class="summary-card"><div class="label">Выручка</div><div class="value blue">${fmt(s.total_revenue)}</div></div>
+        <div class="summary-card"><div class="label">Клиентов</div><div class="value">${s.clients_in_report}</div></div>
+        <div class="summary-card"><div class="label">Топ ${s.top_shown}</div><div class="value">${s.top_revenue_share}% выручки</div></div>
+        ${s.internal_count ? `<div class="summary-card"><div class="label">Внутр. (НДС)</div><div class="value">${fmt(s.internal_total)}</div></div>` : ''}
+    `;
+
+    document.getElementById('tableBody').innerHTML = result.data.map(d => `
+        <tr>
+            <td><strong>${d['Клиент'] || ''}</strong></td>
+            <td>${d['Номенклатура'] || ''}</td>
+            <td>${d['Шт'] || 0}</td>
+            <td>${d['Кв.м'] || 0}</td>
+            <td>${fmt(d['Сумма'] || 0)}</td>
+        </tr>
+    `).join('');
+
+    const internal = result.internal || [];
+    if (internal.length) {
+        document.getElementById('internalBody').innerHTML = internal.map(d => `
+            <tr>
+                <td><strong>${d['Клиент'] || ''}</strong></td>
+                <td>${d['Номенклатура'] || ''}</td>
+                <td>${d['Шт'] || 0}</td>
+                <td>${d['Кв.м'] || 0}</td>
+                <td>${fmt(d['Сумма'] || 0)}</td>
+                <td><span class="badge">${d['Пометка'] || ''}</span></td>
+            </tr>
+        `).join('');
+        document.getElementById('internalBlock').style.display = 'block';
+    }
+
+    if (chartInst) chartInst.destroy();
+    if (result.chart.labels && result.chart.labels.length) {
+        chartInst = new Chart(document.getElementById('chart'), {
+            type: 'bar',
+            data: { labels: result.chart.labels, datasets: [{ label: 'Сумма', data: result.chart.values, backgroundColor: '#3b82f6' }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+        });
+    }
+
+    if (result.filename) document.getElementById('downloadLink').href = '/api/download/' + result.filename;
+    document.getElementById('result').style.display = 'block';
+    showNoteBlock();
+}
+
+function fmt(n) { return new Intl.NumberFormat('ru-RU').format(n); }
+
+loadInbox();
+</script>
+{% endblock %}
