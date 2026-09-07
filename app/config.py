@@ -7,8 +7,8 @@ DATA_DIR = Path(os.environ.get("DATA_DIR", _default_data_path))
 UPLOADS_DIR = DATA_DIR / "uploads"
 REPORTS_DIR = DATA_DIR / "reports"
 
-UPLOADS_DIR.mkdir(exist_ok=True)
-REPORTS_DIR.mkdir(exist_ok=True)
+UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
 # --- База знаний ---
 # Локально используется каталог базы знаний, а на Railway путь задаётся
