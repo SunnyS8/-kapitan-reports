@@ -42,6 +42,22 @@
                 <tbody id="tableBody"></tbody>
             </table>
         </div>
+        <div id="internalBlock" style="display:none;margin-top:24px;">
+            <h2>Внутренние контрагенты (НДС)</h2>
+            <p style="font-size:13px;color:#666;margin:0 0 12px;">Выводятся отдельно и не входят в общие результаты.</p>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Клиент</th>
+                            <th>Факт</th>
+                            <th>Пометка</th>
+                        </tr>
+                    </thead>
+                    <tbody id="internalBody"></tbody>
+                </table>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}
@@ -63,6 +79,7 @@ async function generateReport() {
         <div class="summary-card"><div class="label">Факт</div><div class="value green">${fmt(s.total_fact)} ₽</div></div>
         <div class="summary-card"><div class="label">Выполнение</div><div class="value">${s.total_pct}%</div></div>
         <div class="summary-card"><div class="label">Позиций</div><div class="value">${s.items_count}</div></div>
+        ${s.internal_count ? `<div class="summary-card"><div class="label">Внутр. (НДС)</div><div class="value">${fmt(s.internal_total)} ₽</div></div>` : ''}
     `;
 
     document.getElementById('tableBody').innerHTML = result.data.map(d => {
@@ -72,6 +89,18 @@ async function generateReport() {
             : '<span class="badge badge-c">Не выполнено</span>';
         return `<tr><td><strong>${d.name}</strong></td><td>${fmt(d.plan)} ₽</td><td>${fmt(d.fact)} ₽</td><td>${d.pct}%</td><td>${statusBadge}</td></tr>`;
     }).join('');
+
+    const internal = result.internal || [];
+    if (internal.length) {
+        document.getElementById('internalBody').innerHTML = internal.map(d => `
+            <tr>
+                <td><strong>${d['Клиент'] || ''}</strong></td>
+                <td>${fmt(d['Факт'] || 0)} ₽</td>
+                <td><span class="badge">${d['Пометка'] || ''}</span></td>
+            </tr>
+        `).join('');
+        document.getElementById('internalBlock').style.display = 'block';
+    }
 
     if (chartInst) chartInst.destroy();
     if (result.chart.labels && result.chart.labels.length) {

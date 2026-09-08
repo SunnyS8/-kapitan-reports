@@ -47,6 +47,24 @@
                 <tbody id="tableBody"></tbody>
             </table>
         </div>
+        <div id="internalBlock" style="display:none;margin-top:24px;">
+            <h2>Внутренние контрагенты (НДС)</h2>
+            <p style="font-size:13px;color:#666;margin:0 0 12px;">Выводятся отдельно и не входят в общие результаты.</p>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Клиент</th>
+                            <th>Выручка</th>
+                            <th>Кол-во продаж</th>
+                            <th>Средний чек</th>
+                            <th>Пометка</th>
+                        </tr>
+                    </thead>
+                    <tbody id="internalBody"></tbody>
+                </table>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}
@@ -90,6 +108,7 @@ async function generateReport() {
         <div class="summary-card"><div class="label">Клиентов</div><div class="value">${s.total_clients || 0}</div></div>
         <div class="summary-card"><div class="label">Продаж</div><div class="value">${s.total_sales || 0}</div></div>
         <div class="summary-card"><div class="label">Средний чек</div><div class="value green">${fmt(s.avg_check)} &#8381;</div></div>
+        ${s.internal_count ? `<div class="summary-card"><div class="label">Внутр. (НДС)</div><div class="value">${fmt(s.internal_total)} &#8381;</div></div>` : ''}
     `;
 
     const tbody = document.getElementById('tableBody');
@@ -105,6 +124,20 @@ async function generateReport() {
                 <td>${d.share}%</td>
             </tr>
         `).join('');
+    }
+
+    const internal = result.internal || [];
+    if (internal.length) {
+        document.getElementById('internalBody').innerHTML = internal.map(d => `
+            <tr>
+                <td><strong>${d.client || ''}</strong></td>
+                <td>${fmt(d.revenue)} &#8381;</td>
+                <td>${d.sales_count}</td>
+                <td>${fmt(d.avg_check)} &#8381;</td>
+                <td><span class="badge">${d['Пометка'] || ''}</span></td>
+            </tr>
+        `).join('');
+        document.getElementById('internalBlock').style.display = 'block';
     }
 
     if (chartInstance) chartInstance.destroy();

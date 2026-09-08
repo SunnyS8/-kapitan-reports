@@ -2,18 +2,11 @@
 import pandas as pd
 from pathlib import Path
 
-from app.config import INTERNAL_CLIENTS, INTERNAL_CLIENT_TAG
+from app.config import INTERNAL_CLIENT_TAG
 from app.services.excel_parser import compute_date_period
+from app.services.internal_clients import is_internal_client
 
 TOP_N = 50
-
-
-def _is_internal_client(value) -> bool:
-    """Внутренние контрагенты (для НДС): не входят в общие продажи."""
-    if value is None:
-        return False
-    name = " ".join(str(value).strip().replace("\u00a0", " ").split()).lower()
-    return any(token in name for token in INTERNAL_CLIENTS)
 
 
 def _load_sales(filepaths: list[Path]) -> tuple[pd.DataFrame, list]:
@@ -115,7 +108,7 @@ def generate_top_clients(filepaths: list[Path]) -> dict:
     if "quantity_m2" in df.columns:
         agg["quantity_m2"] = ("quantity_m2", "sum")
 
-    df["is_internal"] = df["client"].map(_is_internal_client)
+    df["is_internal"] = df["client"].map(is_internal_client)
     internal_df = df[df["is_internal"]]
     df = df[~df["is_internal"]].drop(columns=["is_internal"])
 

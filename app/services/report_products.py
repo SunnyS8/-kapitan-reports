@@ -3,6 +3,8 @@ import pandas as pd
 from pathlib import Path
 
 from app.services.excel_parser import compute_date_period
+from app.services.internal_clients import is_internal_client
+from app.config import INTERNAL_CLIENT_TAG
 
 
 def generate_sales_products(filepaths: list[Path]) -> dict:
@@ -32,6 +34,29 @@ def generate_sales_products(filepaths: list[Path]) -> dict:
             "summary": {"error": f"Колонка 'Товар' не найдена. Доступные колонки: {available}", "debug": debug_all},
             "data": [], "chart": {},
         }
+
+    # Внутренние контрагенты (для НДС) — не входят в ABC-анализ, отдельным блоком.
+    internal_rows = []
+    if "client" in df.columns:
+        df["is_internal"] = df["client"].map(is_internal_client)
+        internal_df = df[df["is_internal"]]
+        df = df[~df["is_internal"]].drop(columns=["is_internal"])
+
+        if not internal_df.empty:
+            col = "product" if "product" in internal_df.columns else None
+            if col:
+                ig = internal_df.groupby(col, dropna=False)["sum"].sum().reset_index()
+                ig = ig.sort_values("sum", ascending=False)
+                for _, row in ig.iterrows():
+                    internal_rows.append({
+                        "product": str(row[col]) if pd.notna(row[col]) else "Без названия",
+                        "Сумма": round(float(row["sum"]), 2),
+                        "Пометка": INTERNAL_CLIENT_TAG,
+                    })
+    else:
+        internal_total = 0.0
+
+    internal_total = sum(r["Сумма"] for r in internal_rows)
 
     grouped = df.groupby("product", dropna=False).agg(
         revenue=("sum", "sum"),
@@ -73,6 +98,8 @@ def generate_sales_products(filepaths: list[Path]) -> dict:
         "count_a": abc_counts.get("A", 0),
         "count_b": abc_counts.get("B", 0),
         "count_c": abc_counts.get("C", 0),
+        "internal_total": round(internal_total, 2),
+        "internal_count": len(internal_rows),
         "debug": debug_all,
     }
 
@@ -82,4 +109,4 @@ def generate_sales_products(filepaths: list[Path]) -> dict:
         "colors": ["#16a34a" if d["category"] == "A" else "#eab308" if d["category"] == "B" else "#dc2626" for d in data[:15]],
     }
 
-    return {"summary": summary, "data": data, "chart": chart}
+    return {"summary": summary, "data": data, "chart": chart, "internal": internal_rows}

@@ -3,6 +3,8 @@ import pandas as pd
 from pathlib import Path
 
 from app.services.excel_parser import compute_date_period
+from app.services.internal_clients import is_internal_client
+from app.config import INTERNAL_CLIENT_TAG
 
 
 def generate_sales_clients(filepaths: list[Path]) -> dict:
@@ -32,6 +34,11 @@ def generate_sales_clients(filepaths: list[Path]) -> dict:
             "summary": {"error": f"Колонка 'Клиент' не найдена. Доступные колонки: {available}", "debug": debug_all},
             "data": [], "chart": {},
         }
+
+    # Внутренние контрагенты (для НДС) — отдельным блоком, в общие результаты не входят.
+    df["is_internal"] = df["client"].map(is_internal_client)
+    internal_df = df[df["is_internal"]]
+    df = df[~df["is_internal"]].drop(columns=["is_internal"])
 
     # Дополнительные поля клиента (3.4): берём первое непустое значение по клиенту.
     extra_fields = {}
@@ -72,6 +79,26 @@ def generate_sales_clients(filepaths: list[Path]) -> dict:
                 item[field] = str(row[field])
         data.append(item)
 
+    # Внутренние контрагенты — отдельным блоком с пометкой
+    internal_rows = []
+    if not internal_df.empty:
+        ig = internal_df.groupby("client", dropna=False).agg(
+            revenue=("sum", "sum"),
+            sales_count=("sum", "count"),
+        ).reset_index()
+        ig = ig.sort_values("revenue", ascending=False)
+        internal_total = float(ig["revenue"].sum())
+        for _, row in ig.iterrows():
+            internal_rows.append({
+                "client": str(row["client"]) if pd.notna(row["client"]) else "Без имени",
+                "revenue": round(float(row["revenue"]), 2),
+                "sales_count": int(row["sales_count"]),
+                "avg_check": round(float(row["revenue"] / max(row["sales_count"], 1)), 2),
+                "Пометка": INTERNAL_CLIENT_TAG,
+            })
+    else:
+        internal_total = 0.0
+
     summary = {
         "generated_at": period["generated_at"],
         "period_start": period["period_start"],
@@ -80,6 +107,8 @@ def generate_sales_clients(filepaths: list[Path]) -> dict:
         "total_clients": len(grouped),
         "total_sales": int(grouped["sales_count"].sum()),
         "avg_check": round(float(total_revenue / max(grouped["sales_count"].sum(), 1)), 2),
+        "internal_total": round(internal_total, 2),
+        "internal_count": len(internal_rows),
         "debug": debug_all,
     }
 
@@ -88,4 +117,4 @@ def generate_sales_clients(filepaths: list[Path]) -> dict:
         "values": [d["revenue"] for d in data[:10]],
     }
 
-    return {"summary": summary, "data": data, "chart": chart}
+    return {"summary": summary, "data": data, "chart": chart, "internal": internal_rows}

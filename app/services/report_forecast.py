@@ -2,6 +2,9 @@
 import pandas as pd
 from pathlib import Path
 
+from app.services.internal_clients import is_internal_client
+from app.config import INTERNAL_CLIENT_TAG
+
 
 def generate_forecast(filepaths: list[Path]) -> dict:
     from app.services.excel_parser import read_plan_excel, read_sales_excel
@@ -32,12 +35,28 @@ def generate_forecast(filepaths: list[Path]) -> dict:
     if fact_df is None:
         return {"summary": {"error": "Нет данных о факте продаж", "debug": debug_all}, "data": [], "chart": {}}
 
+    # Внутренние контрагенты (для НДС) — отдельным блоком, из факта исключаются.
+    internal_rows = []
+    if "client" in fact_df.columns and "sum" in fact_df.columns:
+        fact_df["is_internal"] = fact_df["client"].map(is_internal_client)
+        internal_df = fact_df[fact_df["is_internal"]]
+        fact_df = fact_df[~fact_df["is_internal"]].drop(columns=["is_internal"])
+        if not internal_df.empty:
+            ig = internal_df.groupby("client", dropna=False)["sum"].sum().reset_index()
+            ig = ig.sort_values("sum", ascending=False)
+            for _, row in ig.iterrows():
+                internal_rows.append({
+                    "Клиент": str(row["client"]) if pd.notna(row["client"]) else "Без имени",
+                    "Факт": round(float(row["sum"]), 2),
+                    "Пометка": INTERNAL_CLIENT_TAG,
+                })
+
     data = []
 
     if "client" in fact_df.columns and "sum" in fact_df.columns:
         fact_by_client = fact_df.groupby("client", dropna=False)["sum"].sum().reset_index()
 
-        if not plan_df.empty and "client" in plan_df.columns and "plan" in plan_df.columns:
+        if plan_df is not None and not plan_df.empty and "client" in plan_df.columns and "plan" in plan_df.columns:
             plan_by_client = plan_df.groupby("client", dropna=False)["plan"].sum().reset_index()
             merged = fact_by_client.merge(plan_by_client, on="client", how="outer").fillna(0)
 
@@ -56,7 +75,8 @@ def generate_forecast(filepaths: list[Path]) -> dict:
     total_fact = sum(d["fact"] for d in data)
     total_pct = (total_fact / total_plan * 100) if total_plan else 0
 
-    summary = {"total_plan": round(total_plan, 2), "total_fact": round(total_fact, 2), "total_pct": round(total_pct, 1), "items_count": len(data), "debug": debug_all}
+    summary = {"total_plan": round(total_plan, 2), "total_fact": round(total_fact, 2), "total_pct": round(total_pct, 1), "items_count": len(data), "internal_total": round(float(sum(r["Факт"] for r in internal_rows)), 2), "internal_count": len(internal_rows), "debug": debug_all}
     chart = {"labels": [d["name"][:20] for d in data[:10]], "plan": [d["plan"] for d in data[:10]], "fact": [d["fact"] for d in data[:10]]}
 
-    return {"summary": summary, "data": data, "chart": chart}
+    return {"summary": summary, "data": data, "chart": chart,
+            "internal": internal_rows if internal_rows else []}

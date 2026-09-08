@@ -43,6 +43,22 @@
                 <tbody id="tableBody"></tbody>
             </table>
         </div>
+        <div id="internalBlock" style="display:none;margin-top:24px;">
+            <h2>Внутренние контрагенты (НДС)</h2>
+            <p style="font-size:13px;color:#666;margin:0 0 12px;">Выводятся отдельно и не входят в общие результаты.</p>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Номенклатура</th>
+                            <th>Сумма</th>
+                            <th>Пометка</th>
+                        </tr>
+                    </thead>
+                    <tbody id="internalBody"></tbody>
+                </table>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}
@@ -65,6 +81,7 @@ async function generateReport() {
         <div class="summary-card"><div class="label">Категория A</div><div class="value green">${s.count_a}</div></div>
         <div class="summary-card"><div class="label">Категория B</div><div class="value" style="color:#eab308">${s.count_b}</div></div>
         <div class="summary-card"><div class="label">Категория C</div><div class="value red">${s.count_c}</div></div>
+        ${s.internal_count ? `<div class="summary-card"><div class="label">Внутр. (НДС)</div><div class="value">${fmt(s.internal_total)} ₽</div></div>` : ''}
     `;
 
     document.getElementById('tableBody').innerHTML = result.data.map(d => `
@@ -94,6 +111,18 @@ async function generateReport() {
             data: { labels: Object.keys(catSums), datasets: [{ data: Object.values(catSums), backgroundColor: ['#16a34a', '#eab308', '#dc2626'] }] },
             options: { responsive: true, maintainAspectRatio: false }
         });
+    }
+
+    const internal = result.internal || [];
+    if (internal.length) {
+        document.getElementById('internalBody').innerHTML = internal.map(d => `
+            <tr>
+                <td><strong>${d.product || ''}</strong></td>
+                <td>${fmt(d['Сумма'] || 0)} ₽</td>
+                <td><span class="badge">${d['Пометка'] || ''}</span></td>
+            </tr>
+        `).join('');
+        document.getElementById('internalBlock').style.display = 'block';
     }
 
     if (result.filename) document.getElementById('downloadLink').href = '/api/download/' + result.filename;
