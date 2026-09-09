@@ -220,7 +220,7 @@ async def analyze_report(report_type: str, req: Optional[AnalyzeRequest] = None)
 
     if ai_mode:
         try:
-            from app.services.hermes_note import build_ai_note, note_to_markdown
+            from app.services.openrouter_note import build_ai_note, note_to_markdown
             ai_text = await asyncio.to_thread(build_ai_note, report_type, result)
             note_text = note_to_markdown(report_type, ai_text)
             mode = "ai"
