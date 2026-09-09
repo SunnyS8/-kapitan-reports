@@ -131,5 +131,44 @@ def generate_dynamics(filepaths: list[Path]) -> dict:
         "mom": [d["mom_pct"] if d["mom_pct"] is not None else 0 for d in data],
     }
 
+    # --- Продажи по складам помесячно ---
+    wh_col = "warehouse" if "warehouse" in df.columns else "city"
+    by_warehouse = []
+    chart_warehouse = {"labels": [], "datasets": []}
+    if wh_col in df.columns:
+        wh = df[wh_col].fillna("Без склада").astype(str)
+        wg = df.groupby([wh, "period"]).agg(
+            revenue=("sum", "sum"),
+            sales_count=("sum", "count"),
+        ).reset_index()
+        by_warehouse = [
+            {
+                "period": row["period"],
+                "month": _month_label(row["period"]),
+                "warehouse": row[wh_col],
+                "revenue": round(float(row["revenue"]), 2),
+                "sales_count": int(row["sales_count"]),
+            }
+            for _, row in wg.iterrows()
+        ]
+        by_warehouse.sort(key=lambda d: d["period"])
+        warehouses = sorted({d["warehouse"] for d in by_warehouse})
+        months = []
+        for p in sorted({d["period"] for d in by_warehouse}):
+            if p not in months:
+                months.append(p)
+        rev_by = {}
+        for d in by_warehouse:
+            rev_by.setdefault(d["warehouse"], {})[d["period"]] = d["revenue"]
+        chart_warehouse = {
+            "labels": [_month_label(p) for p in months],
+            "datasets": [
+                {"label": w, "values": [round(rev_by.get(w, {}).get(p, 0), 2) for p in months]}
+                for w in warehouses
+            ],
+        }
+
     return {"summary": summary, "data": data, "chart": chart,
+            "chart_warehouse": chart_warehouse,
+            "by_warehouse": by_warehouse,
             "internal": internal_rows if internal_rows else []}

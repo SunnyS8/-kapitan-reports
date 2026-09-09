@@ -6,12 +6,12 @@
 {% block content %}
 <div class="page-header">
     <h1>Динамика по складу</h1>
-    <p>Движение номенклатуры по складам и городам: нач.приход, остатки, резерв</p>
+    <p>Сводка по складам, движение номенклатуры по периодам и позициям</p>
 </div>
 
 <div class="card">
     <h2 style="margin-bottom:16px;">Выбор выгрузок из 1С</h2>
-    <p style="font-size:13px;color:#666;margin:0 0 12px;">Выберите файлы остатков из папки <strong>inbox</strong> проекта Kapitan Reports. Справочники хранятся в подпапке <strong>inbox/Справочники</strong>.</p>
+    <p style="font-size:13px;color:#666;margin:0 0 12px;">Выберите файлы остатков из папки <strong>inbox</strong> проекта Kapitan Reports. Справочники хранятся в подпапке <strong>inbox/Справочники</strong>. Если за один период несколько файлов — берётся самый детальный (с м²).</p>
     <div id="inboxList" style="max-height:240px;overflow:auto;border:1px solid var(--border,#e2e8f0);border-radius:8px;padding:8px;"></div>
     <div style="margin-top:12px;font-size:13px;">
         <label><input type="checkbox" id="selectAll" onchange="toggleAll(this.checked)"> Выбрать все</label>
@@ -26,23 +26,46 @@
     {% include "note.html" %}
     <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-            <h2>Динамика по позициям</h2>
+            <h2>Остатки на конец периода</h2>
             <a id="downloadLink" class="btn btn-success" href="#"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg> Скачать Excel</a>
         </div>
         <div class="chart-container" style="margin-bottom:20px;">
             <canvas id="chart"></canvas>
         </div>
+        <div id="periodNote" class="muted" style="font-size:13px;margin-bottom:12px;"></div>
+        <div class="table-wrap" style="margin-bottom:28px;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Склад</th>
+                        <th>Позиций</th>
+                        <th>Начальный приход</th>
+                        <th>Приход</th>
+                        <th>Расход</th>
+                        <th>Остаток</th>
+                        <th>Резерв</th>
+                    </tr>
+                </thead>
+                <tbody id="warehousesBody"></tbody>
+            </table>
+        </div>
+        <h2>Движение по позициям</h2>
         <div class="table-wrap">
             <table>
                 <thead>
                     <tr>
-                        <th>Город склада</th>
+                        <th>Период</th>
+                        <th>Склад</th>
+                        <th>Артикул</th>
                         <th>Номенклатура</th>
-                        <th>Начальный приход</th>
-                        <th>Остаток</th>
+                        <th>Характеристика</th>
+                        <th>Ширина</th>
+                        <th>Нач.приход</th>
                         <th>Приход</th>
                         <th>Расход</th>
+                        <th>Остаток</th>
                         <th>Резерв</th>
+                        <th>Остаток м²</th>
                     </tr>
                 </thead>
                 <tbody id="tableBody"></tbody>
@@ -68,31 +91,83 @@ async function generateReport() {
     const result = await res.json();
 
     const s = result.summary;
-    document.getElementById('summary').innerHTML = `
-        <div class="summary-card"><div class="label">Всего позиций</div><div class="value">${s.total_items}</div></div>
+    let summaryHtml = `
+        <div class="summary-card"><div class="label">Позиций</div><div class="value">${fmt(s.total_items)}</div></div>
         <div class="summary-card"><div class="label">Остатки</div><div class="value blue">${fmt(s.total_balance)}</div></div>
         <div class="summary-card"><div class="label">Резерв</div><div class="value">${fmt(s.total_reserve)}</div></div>
     `;
+    if (s.periods && s.periods.length) {
+        summaryHtml += `<div class="summary-card"><div class="label">Период</div><div class="value">${esc(s.periods[s.periods.length-1])}</div></div>`;
+    }
+    document.getElementById('summary').innerHTML = summaryHtml;
 
-    document.getElementById('tableBody').innerHTML = result.data.map(d => `
+    document.getElementById('warehousesBody').innerHTML = (result.warehouses || []).map(d => `
         <tr>
-            <td>${d['Город склада'] || ''}</td>
-            <td><strong>${d['Номенклатура'] || ''}</strong></td>
-            <td>${d['Начальный приход'] != null ? fmt(d['Начальный приход']) : ''}</td>
-            <td>${fmt(d['Остаток'])}</td>
-            <td>${d['Приход'] != null ? fmt(d['Приход']) : ''}</td>
-            <td>${d['Расход'] != null ? fmt(d['Расход']) : ''}</td>
-            <td>${d['Резерв'] != null ? fmt(d['Резерв']) : ''}</td>
+            <td><strong>${esc(d['Город склада'] || '')}</strong></td>
+            <td>${fmt(d['Позиций'])}</td>
+            <td>${fmt(d['Начальный приход'])}</td>
+            <td>${fmt(d['Приход'])}</td>
+            <td>${fmt(d['Расход'])}</td>
+            <td><strong>${fmt(d['Остаток'])}</strong></td>
+            <td>${fmt(d['Резерв'])}</td>
         </tr>
     `).join('');
 
+    document.getElementById('tableBody').innerHTML = result.data.map(d => `
+        <tr>
+            <td>${esc(d['Период'] || '')}</td>
+            <td>${esc(d['Город склада'] || '')}</td>
+            <td>${esc(d['Артикул'] || '')}</td>
+            <td><strong>${esc(d['Номенклатура'] || '')}</strong></td>
+            <td>${esc(d['Характеристика'] || '')}</td>
+            <td>${esc(d['Ширина'] || '')}</td>
+            <td>${fmt(d['Начальный приход'])}</td>
+            <td>${fmt(d['Приход'])}</td>
+            <td>${fmt(d['Расход'])}</td>
+            <td><strong>${fmt(d['Остаток'])}</strong></td>
+            <td>${fmt(d['Резерв'])}</td>
+            <td>${fmt(d['Остаток м2'])}</td>
+        </tr>
+    `).join('');
+
+    if (result.data.length > 3000) {
+        document.querySelector('#result .table-wrap').style.maxHeight = '480px';
+        document.querySelector('#result .table-wrap').style.overflow = 'auto';
+    }
+
     if (chartInst) chartInst.destroy();
-    if (result.chart.labels && result.chart.labels.length) {
-        chartInst = new Chart(document.getElementById('chart'), {
-            type: 'bar',
-            data: { labels: result.chart.labels, datasets: [{ label: 'Остаток', data: result.chart.values, backgroundColor: '#3b82f6' }] },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
-        });
+    const ch = result.chart;
+    if (ch.labels && ch.labels.length) {
+        let cfg;
+        if (ch.type === 'line') {
+            cfg = {
+                type: 'line',
+                data: { labels: ch.labels, datasets: ch.datasets.map((ds, i) => ({
+                    label: ds.label,
+                    data: ds.values,
+                    borderColor: PALETTE[i % PALETTE.length],
+                    backgroundColor: PALETTE[i % PALETTE.length],
+                    tension: 0.3,
+                    fill: false
+                }))},
+                options: chartOptions('Остаток, шт')
+            };
+            document.getElementById('periodNote').textContent = 'Динамика остатков на конец периода по складам.';
+        } else {
+            cfg = {
+                type: 'bar',
+                data: { labels: ch.labels, datasets: [{ label: ch.unit || 'Остаток', data: ch.values, backgroundColor: '#3b82f6' }] },
+                options: chartOptions('Остаток, шт')
+            };
+            document.getElementById('periodNote').textContent = s.periods && s.periods.length ? 'Остатки на конец периода: ' + esc(s.periods[s.periods.length-1]) + '.' : '';
+        }
+        chartInst = new Chart(document.getElementById('chart'), cfg);
+    }
+
+    const dedup = s.dedup || [];
+    if (dedup.length) {
+        const notes = dedup.map(d => `за период «${esc(d.period)}» взят «${esc(d.kept)}», отброшен: ${esc(d.dropped.join(', '))}`).join('; ');
+        if (notes) document.getElementById('periodNote').textContent += ' ⚠️ Дубль периода: ' + notes;
     }
 
     if (result.filename) document.getElementById('downloadLink').href = '/api/download/' + result.filename;
@@ -100,7 +175,18 @@ async function generateReport() {
     showNoteBlock();
 }
 
-function fmt(n) { if (n == null) return ''; return new Intl.NumberFormat('ru-RU').format(n); }
+const PALETTE = ['#3b82f6', '#eab308', '#22c55e', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316', '#ec4899', '#84cc16', '#14b8a6'];
+
+function chartOptions(unit) {
+    return {
+        responsive: true, maintainAspectRatio: false,
+        scales: { y: { ticks: { callback: v => (v >= 1e6 ? (v/1e6).toFixed(1) + 'M' : v) } } },
+        plugins: { legend: { position: 'bottom' } }
+    };
+}
+
+function fmt(n) { if (n == null || n === '' || isNaN(n)) return ''; return new Intl.NumberFormat('ru-RU').format(n); }
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 loadInbox();
 </script>

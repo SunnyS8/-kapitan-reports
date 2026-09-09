@@ -125,6 +125,7 @@ async def generate_report(report_type: str, req: Optional[GenerateRequest] = Non
     # Экспорт в Excel
     data = result.get("data", [])
     internal = result.get("internal") or []
+    warehouses = result.get("warehouses") or []
     filename = ""
     if data or internal:
         if report_type == "nelikvid":
@@ -137,6 +138,8 @@ async def generate_report(report_type: str, req: Optional[GenerateRequest] = Non
             extra = {}
             if internal:
                 extra["Внутренние (НДС)"] = internal
+            if warehouses:
+                extra["Сводка по складам"] = warehouses
             filename = export_to_excel(data, report_type, REPORTS_DIR, extra_sheets=extra if extra else None)
 
     # Запись в папки базы знаний (xlsx + md + месячные)
@@ -153,6 +156,8 @@ async def generate_report(report_type: str, req: Optional[GenerateRequest] = Non
         "data": data,
         "chart": result.get("chart", result.get("chart_category", {})),
         "chart_warehouse": result.get("chart_warehouse"),
+        "warehouses": warehouses,
+        "by_warehouse": result.get("by_warehouse") or [],
         "internal": internal,
         "filename": filename,
     }

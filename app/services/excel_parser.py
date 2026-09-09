@@ -362,6 +362,25 @@ _SKIP_COL0_TOKENS = {
 _WIDTH_TOKENS = {"узкий", "широкий"}
 
 
+def _extract_stock_period(raw: pd.DataFrame) -> str:
+    """Извлекает период из шапки выгрузки остатков («Период: 01.08.2026 - 30.08.2026»)."""
+    for _, row in raw.head(12).iterrows():
+        for v in row.values:
+            if pd.notna(v):
+                s = str(v)
+                if "период" in s.lower():
+                    s = s.lower()
+                    if "период:" in s:
+                        after = s.split("период:", 1)[1]
+                    else:
+                        after = s.split("период", 1)[1]
+                    after = after.strip()
+                    if after.startswith(":") or after.startswith("—") or after.startswith("-"):
+                        after = after[1:].strip()
+                    return after
+    return ""
+
+
 def _is_empty(v) -> bool:
     return v is None or (isinstance(v, float) and pd.isna(v))
 
@@ -459,6 +478,7 @@ def _read_stock_vedomost(filepath: Path) -> tuple[pd.DataFrame, dict]:
             "warehouse": cur_warehouse or "",
             "product": product,
             "characteristic": characteristic,
+            "article": col0 if col0.startswith("УТ") else "",
             "start_balance": col12,
             "income": row[13] if len(row) > 13 else None,
             "outcome": row[14] if len(row) > 14 else None,
@@ -471,6 +491,7 @@ def _read_stock_vedomost(filepath: Path) -> tuple[pd.DataFrame, dict]:
     debug = {
         "filename": filepath.name,
         "format": "vedomost",
+        "period": _extract_stock_period(raw),
         "rows": len(df),
         "raw_rows": len(raw),
         "header_row": header_idx,
@@ -589,14 +610,16 @@ def _read_stock_sebestoimost(filepath: Path) -> tuple[pd.DataFrame, dict]:
             "income": row[7],
             "outcome": row[8],
             "end_balance": row[9],
+            "end_balance_m2": row[10] if len(row) > 10 else None,
         })
 
     df = pd.DataFrame(records)
-    _numerify(df, ["start_balance", "income", "outcome", "end_balance"])
+    _numerify(df, ["start_balance", "income", "outcome", "end_balance", "end_balance_m2"])
 
     debug = {
         "filename": filepath.name,
         "format": "sebestoimost",
+        "period": _extract_stock_period(raw),
         "rows": len(df),
         "raw_rows": len(raw),
         "header_row": header_idx,

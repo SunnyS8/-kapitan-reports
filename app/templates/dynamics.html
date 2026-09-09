@@ -58,6 +58,24 @@
                 </table>
             </div>
         </div>
+        <div id="warehouseBlock" style="display:none;margin-top:32px;">
+            <h2>Продажи по складам помесячно</h2>
+            <p style="font-size:13px;color:#666;margin:0 0 12px;">Выручка по складу отгрузки без внутренних контрагентов.</p>
+            <div class="chart-container" style="margin-bottom:16px;">
+                <canvas id="whChart"></canvas>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Месяц</th>
+                            <th id="whHeaders"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="whBody"></tbody>
+                </table>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}
@@ -133,12 +151,60 @@ async function generateReport() {
         document.getElementById('internalBlock').style.display = 'block';
     }
 
+    const byWh = result.by_warehouse || [];
+    if (byWh.length) {
+        const warehouses = [...new Set(byWh.map(d => d.warehouse))].sort();
+        document.getElementById('whHeaders').outerHTML =
+            `<th>Месяц</th>` + warehouses.map(w => `<th>${esc(w)}</th><th>${esc(w)} %</th>`).join('');
+        const months = [...new Set(byWh.map(d => d.month))];
+        const table = {};
+        byWh.forEach(d => {
+            table[d.month] = table[d.month] || {};
+            table[d.month][d.warehouse] = d.revenue;
+        });
+        document.getElementById('whBody').innerHTML = months.map(m => {
+            let cells = '';
+            const total = warehouses.reduce((s, w) => s + (table[m][w] || 0), 0);
+            warehouses.forEach(w => {
+                const v = table[m][w] || 0;
+                const pct = total ? (v / total * 100).toFixed(1) : '0.0';
+                cells += `<td>${fmt(v)} ₽</td><td class="muted" style="font-size:12px;">${pct}%</td>`;
+            });
+            return `<tr><td><strong>${esc(m)}</strong></td>${cells}</tr>`;
+        }).join('');
+        document.getElementById('warehouseBlock').style.display = 'block';
+    }
+
+    if (whChartInst) whChartInst.destroy();
+    const whc = result.chart_warehouse;
+    if (whc && whc.labels && whc.labels.length && byWh.length) {
+        whChartInst = new Chart(document.getElementById('whChart'), {
+            type: 'line',
+            data: { labels: whc.labels, datasets: whc.datasets.map((ds, i) => ({
+                label: ds.label,
+                data: ds.values,
+                borderColor: PALETTE[i % PALETTE.length],
+                backgroundColor: PALETTE[i % PALETTE.length],
+                tension: 0.3,
+                fill: false
+            }))},
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                scales: { y: { ticks: { callback: v => (v / 1e6).toFixed(0) + 'M' } } },
+                plugins: { legend: { position: 'bottom' } }
+            }
+        });
+    }
+
     if (result.filename) document.getElementById('downloadLink').href = '/api/download/' + result.filename;
     document.getElementById('result').style.display = 'block';
     showNoteBlock();
 }
 
+const PALETTE = ['#3b82f6', '#eab308', '#22c55e', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316', '#ec4899', '#84cc16', '#14b8a6'];
+let whChartInst = null;
 function fmt(n) { if (n == null) return '—'; return new Intl.NumberFormat('ru-RU').format(n); }
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 loadInbox();
 </script>
 {% endblock %}
