@@ -89,6 +89,7 @@ def generate_sales_products(filepaths: list[Path]) -> dict:
         })
 
     abc_counts = grouped["category"].value_counts().to_dict()
+    skipped_sources = [d["filename"] for d in debug_all if "error" in d]
     summary = {
         "generated_at": period["generated_at"],
         "period_start": period["period_start"],
@@ -100,6 +101,7 @@ def generate_sales_products(filepaths: list[Path]) -> dict:
         "count_c": abc_counts.get("C", 0),
         "internal_total": round(internal_total, 2),
         "internal_count": len(internal_rows),
+        "skipped_sources": skipped_sources,
         "debug": debug_all,
     }
 

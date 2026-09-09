@@ -217,12 +217,38 @@ def read_sales_excel(filepath: Path) -> tuple[pd.DataFrame, dict]:
         # dayfirst=True, чтобы 01.08.2026 читалось как 1 августа, а не 8 января.
         df["date"] = pd.to_datetime(df["date"], errors="coerce", dayfirst=True)
 
+    # Валидация: файл должен быть отчётом о продажах. Остатки, ведомости и
+    # движения по складу не содержат колонок «Номенклатура» и «Сумма выручки»
+    # с ненулевыми продажами. Если пустить такой файл дальше, его строки
+    # при concat с другими файлами дадут пустой Номенклатура и свернутся
+    # в «Без названия», искажая отчёт.
+    if "product" not in df.columns or "sum" not in df.columns:
+        raise ParseError(
+            f"Файл {filepath.name} не похож на отчёт о продажах: "
+            f"нет колонок «Номенклатура» и/или «Сумма выручки»."
+        )
+
+    names = df["product"].astype(str).str.strip()
+    # Не только по названию («Итого»/«Всего»), но и по пустой номенклатуре.
+    # astype(str) для NA зависит от версии pandas: в новых версиях даёт «<NA>»,
+    # в старых «nan» — поэтому проверяем сам NaN через notna(), а не строку.
+    valid = df["product"].notna() & ~names.isin(["", "nan", "None", "<NA>", "Итого", "Всего", "Итог", "Итого:"])
+    if not bool((valid & (df["sum"] != 0)).any()):
+        raise ParseError(
+            f"Файл {filepath.name} не похож на отчёт о продажах: "
+            f"нет ни одной строки с номенклатурой и ненулевой суммой продаж."
+        )
+
     # Убираем итоговые строки отчёта: строки без номенклатуры (сводные «Итого»/«Всего»)
     # с агрегированной суммой, которые не являются позициями продаж.
-    if "product" in df.columns:
-        mask = df["product"].astype(str).str.strip()
-        df = df[~mask.isin(["", "nan", "None", "Итого", "Всего", "Итог", "Итого:"])]
-        df.reset_index(drop=True, inplace=True)
+    dropped = int((~valid).sum())
+    rows_before = len(df)
+    df = df[valid]
+    df.reset_index(drop=True, inplace=True)
+    debug["dropped_empty_product"] = dropped
+    debug["rows_after_filter"] = len(df)
+    debug["rows_before_filter"] = rows_before
+    debug["pandas_version"] = pd.__version__
 
     return df, debug
 
