@@ -148,23 +148,39 @@ def _inventory_note(s: dict, data: list) -> str:
 
 
 def _dynamics_note(s: dict, data: list) -> str:
-    r1 = _num(s.get("revenue_1"))
-    r2 = _num(s.get("revenue_2"))
-    diff = _num(s.get("diff"))
-    pct = _num(s.get("diff_pct"))
-    trend = s.get("trend", "flat")
-    emoji = "📈 рост" if trend == "up" else "📉 падение" if trend == "down" else "➡️ без изменений"
+    total = _num(s.get("total_revenue"))
+    months = _num(s.get("months_count"))
+    sales = _num(s.get("total_sales"))
+    check = _num(s.get("avg_check"))
     lines = [
-        f"**Период 1:** {_safe_v(s, 'period_1', '—')} — {_money(r1)}.",
-        f"**Период 2:** {_safe_v(s, 'period_2', '—')} — {_money(r2)}.",
-        f"\n**Изменение:** {emoji}, {_money(abs(diff))} ({_pct(pct)}).",
+        f"**Выручка за период:** {_money(total)}.",
+        f"**Период:** {_safe_v(s, 'period_start', '—')} – {_safe_v(s, 'period_end', '—')}, **месяцев в динамике:** {_n(months)}.",
+        f"**Продаж:** {_n(sales)}, **средний чек:** {_money(check)}.",
+        f"**Лучший месяц:** {_safe_v(s, 'best_month', '—')} — {_money(s.get('best_revenue'))}.",
     ]
-    if trend == "up":
-        lines.append("\n**Вывод:** продажи растут — закрепить драйверы, проверить запас товара под спрос.")
-    elif trend == "down":
-        lines.append("\n**Вывод:** продажи падают — проанализировать причины (ассортимент, цены, клиенты).")
+    internal_total = _num(s.get("internal_total"))
+    if internal_total:
+        lines.append(f"\n⚠️ **Внутренние контрагенты (НДС):** {_n(s.get('internal_count'))} мес. на {_money(internal_total)} — в продажи не входят.")
+    if len(data) >= 2:
+        last = data[-1]
+        mom = _num(last.get("mom_pct"))
+        if data[-1].get("mom_pct") is not None:
+            emoji = "📈 рост" if mom >= 0 else "📉 падение"
+            lines.append(f"\n**Последний месяц ({data[-1].get('month', '—')}):** {_money(last.get('revenue'))} — "
+                         f"{emoji} {_pct(abs(mom))} к предыдущему месяцу.")
+    # Тренд: сравнение последних 3 месяцев со средней выручкой
+    if len(data) >= 3:
+        recent = data[-3:]
+        avg_recent = sum(_num(d.get("revenue")) for d in recent) / len(recent)
+        total_avg = total / months if months else 0
+        if avg_recent >= total_avg * 1.05:
+            lines.append("\n**Вывод:** последние месяцы выше среднего — продажи ускоряются, следить за запасом под спрос.")
+        elif avg_recent <= total_avg * 0.95:
+            lines.append("\n**Вывод:** последние месяцы ниже среднего — проанализировать причины (сезонность, ассортимент, клиенты).")
+        else:
+            lines.append("\n**Вывод:** продажи стабильны на уровне среднего — искать новые точки роста.")
     else:
-        lines.append("\n**Вывод:** продажи стабильны, роста нет — искать новые точки роста.")
+        lines.append("\n**Вывод:** данных для оценки тренда мало — нужна длинная история выгрузок.")
     return "\n".join(lines)
 
 

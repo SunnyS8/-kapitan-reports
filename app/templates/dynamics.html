@@ -6,12 +6,12 @@
 {% block content %}
 <div class="page-header">
     <h1>Динамика продаж</h1>
-    <p>Сравнение периодов, процент изменения, тренд</p>
+    <p>Помесячная выручка, средний чек, прирост к предыдущему месяцу</p>
 </div>
 
 <div class="card">
     <h2 style="margin-bottom:8px;">Выбор выгрузок из 1С</h2>
-    <p class="muted" style="margin-bottom:12px;">Выберите минимум два исходника за разные периоды.</p>
+    <p class="muted" style="margin-bottom:12px;">Выберите исходники продаж. Даты берутся из строк выгрузок автоматически.</p>
     <div id="inboxList" class="source-picker"></div>
     <div class="inbox-toolbar"><label><input type="checkbox" id="selectAll" onchange="toggleAll(this.checked)"> Выбрать все</label></div>
     <button type="button" class="btn btn-primary" style="margin-top:16px;" onclick="generateReport()"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7V5Z"/></svg> Сформировать отчёт</button>
@@ -22,11 +22,41 @@
     {% include "note.html" %}
     <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-            <h2>Сравнение периодов</h2>
+            <h2>Помесячная динамика</h2>
             <a id="downloadLink" class="btn btn-success" href="#"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg> Скачать Excel</a>
         </div>
         <div class="chart-container" style="margin-bottom:20px;">
             <canvas id="chart"></canvas>
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Месяц</th>
+                        <th>Выручка</th>
+                        <th>Продаж</th>
+                        <th>Средний чек</th>
+                        <th>К прошлому месяцу</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
+        <div id="internalBlock" style="display:none;margin-top:24px;">
+            <h2>Внутренние контрагенты (НДС)</h2>
+            <p style="font-size:13px;color:#666;margin:0 0 12px;">Выводятся отдельно и не входят в общие результаты.</p>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Месяц</th>
+                            <th>Сумма</th>
+                            <th>Пометка</th>
+                        </tr>
+                    </thead>
+                    <tbody id="internalBody"></tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>
@@ -38,30 +68,69 @@ let chartInst = null;
 
 async function generateReport() {
     const names = selectedFiles();
-    if (names.length < 2) { alert('Выберите минимум 2 файла'); return; }
+    if (!names.length) { alert('Выберите хотя бы один файл'); return; }
     const res = await fetch('/api/generate/dynamics', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({files: names}) });
-    if (!res.ok) { alert('Ошибка'); return; }
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert('Ошибка: ' + (err.detail || res.status));
+        return;
+    }
     const result = await res.json();
 
     const s = result.summary;
-    const trendIcon = s.trend === 'up' ? '&#9650;' : s.trend === 'down' ? '&#9660;' : '&#9644;';
-    const trendClass = s.diff >= 0 ? 'green' : 'red';
-
     document.getElementById('summary').innerHTML = `
-        <div class="summary-card"><div class="label">Период 1</div><div class="value">${s.period_1}</div></div>
-        <div class="summary-card"><div class="label">Период 2</div><div class="value">${s.period_2}</div></div>
-        <div class="summary-card"><div class="label">Выручка 1</div><div class="value blue">${fmt(s.revenue_1)} ₽</div></div>
-        <div class="summary-card"><div class="label">Выручка 2</div><div class="value blue">${fmt(s.revenue_2)} ₽</div></div>
-        <div class="summary-card"><div class="label">Изменение</div><div class="value ${trendClass}">${trendIcon} ${s.diff_pct}%</div></div>
+        <div class="summary-card"><div class="label">Период</div><div class="value">${s.period_start} — ${s.period_end}</div></div>
+        <div class="summary-card"><div class="label">Выручка</div><div class="value blue">${fmt(s.total_revenue)} ₽</div></div>
+        <div class="summary-card"><div class="label">Продаж</div><div class="value">${fmt(s.total_sales)}</div></div>
+        <div class="summary-card"><div class="label">Средний чек</div><div class="value">${fmt(s.avg_check)} ₽</div></div>
+        <div class="summary-card"><div class="label">Лучший месяц</div><div class="value green">${s.best_month}</div></div>
+        ${s.internal_count ? `<div class="summary-card"><div class="label">Внутр. (НДС)</div><div class="value">${fmt(s.internal_total)} ₽</div></div>` : ''}
     `;
+
+    document.getElementById('tableBody').innerHTML = result.data.map(d => {
+        const mom = d.mom_pct == null ? '—' : `<span class="badge ${d.mom_pct >= 0 ? 'badge-a' : 'badge-c'}">${d.mom_pct >= 0 ? '▲' : '▼'} ${Math.abs(d.mom_pct)}%</span>`;
+        return `
+        <tr>
+            <td><strong>${d.month}</strong></td>
+            <td>${fmt(d.revenue)} ₽</td>
+            <td>${fmt(d.sales_count)}</td>
+            <td>${fmt(d.avg_check)} ₽</td>
+            <td>${mom}</td>
+        </tr>`;
+    }).join('');
 
     if (chartInst) chartInst.destroy();
     if (result.chart.labels && result.chart.labels.length) {
         chartInst = new Chart(document.getElementById('chart'), {
             type: 'bar',
-            data: { labels: result.chart.labels, datasets: [{ label: 'Выручка', data: result.chart.values, backgroundColor: ['#3b82f6', '#10b981'] }] },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+            data: {
+                labels: result.chart.labels,
+                datasets: [
+                    { label: 'Выручка', data: result.chart.values, backgroundColor: '#3b82f6', yAxisID: 'y', order: 1 },
+                    { label: 'К прошлому месяцу, %', data: result.chart.mom, type: 'line', borderColor: '#eab308', backgroundColor: '#eab308', yAxisID: 'y1', tension: 0.3, order: 0 }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                scales: {
+                    y: { position: 'left', ticks: { callback: v => (v / 1e6).toFixed(0) + 'M' } },
+                    y1: { position: 'right', grid: { drawOnChartArea: false }, ticks: { callback: v => v + '%' } }
+                },
+                plugins: { legend: { position: 'bottom' } }
+            }
         });
+    }
+
+    const internal = result.internal || [];
+    if (internal.length) {
+        document.getElementById('internalBody').innerHTML = internal.map(d => `
+            <tr>
+                <td><strong>${d['Месяц'] || ''}</strong></td>
+                <td>${fmt(d['Сумма'] || 0)} ₽</td>
+                <td><span class="badge">${d['Пометка'] || ''}</span></td>
+            </tr>
+        `).join('');
+        document.getElementById('internalBlock').style.display = 'block';
     }
 
     if (result.filename) document.getElementById('downloadLink').href = '/api/download/' + result.filename;
@@ -69,7 +138,7 @@ async function generateReport() {
     showNoteBlock();
 }
 
-function fmt(n) { return new Intl.NumberFormat('ru-RU').format(n); }
+function fmt(n) { if (n == null) return '—'; return new Intl.NumberFormat('ru-RU').format(n); }
 loadInbox();
 </script>
 {% endblock %}
