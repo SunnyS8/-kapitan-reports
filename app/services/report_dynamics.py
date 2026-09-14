@@ -70,6 +70,16 @@ def generate_dynamics(filepaths: list[Path]) -> dict:
         mom_pct = None
         if prev_revenue:
             mom_pct = round((rev - prev_revenue) / prev_revenue * 100, 1) if prev_revenue else 0.0
+        territory = ""
+        manager = ""
+        if "city" in df.columns:
+            period_clients = df[df["period"] == row["period"]]["city"].dropna()
+            if len(period_clients):
+                territory = str(period_clients.iloc[0])
+        if "manager" in df.columns:
+            period_managers = df[df["period"] == row["period"]]["manager"].dropna()
+            if len(period_managers):
+                manager = str(period_managers.iloc[0])
         data.append({
             "period": row["period"],
             "month": _month_label(row["period"]),
@@ -77,7 +87,8 @@ def generate_dynamics(filepaths: list[Path]) -> dict:
             "sales_count": sales_cnt,
             "avg_check": round(rev / sales_cnt, 2) if sales_cnt else 0.0,
             "mom_pct": mom_pct,
-            "territory": str(row.get("city", "")) if "city" in df.columns else "",
+            "territory": territory,
+            "manager": manager,
         })
         prev_revenue = rev
 

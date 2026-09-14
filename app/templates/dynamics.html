@@ -33,6 +33,7 @@
                 <thead>
                     <tr>
                         <th>Месяц</th>
+                        <th>Менеджер</th>
                         <th>Территория</th>
                         <th>Выручка</th>
                         <th>Продаж</th>
@@ -111,6 +112,7 @@ async function generateReport() {
         return `
         <tr>
             <td><strong>${d.month}</strong></td>
+            <td>${d.manager || ''}</td>
             <td>${d.territory || ''}</td>
             <td>${fmt(d.revenue)} ₽</td>
             <td>${fmt(d.sales_count)}</td>

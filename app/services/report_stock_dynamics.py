@@ -211,6 +211,8 @@ def generate_stock_dynamics(filepaths: list[Path]) -> dict:
     agg_detail["article"] = ("article", "first")
     agg_detail["characteristic"] = ("characteristic", "first")
     agg_detail["width"] = ("width", "first")
+    if "manager" in df.columns:
+        agg_detail["manager"] = ("manager", "first")
 
     detail = df.groupby(group_cols, dropna=False).agg(**agg_detail).reset_index()
     detail = detail.sort_values(["period", "loc", "end_balance"], ascending=[True, True, False])
@@ -220,6 +222,7 @@ def generate_stock_dynamics(filepaths: list[Path]) -> dict:
         item = {
             "Период": str(row["period"]) if row["period"] else "—",
             "Город склада": str(row["loc"]),
+            "Менеджер": str(row["manager"]) if "manager" in row.index and pd.notna(row.get("manager", "")) else "",
             "Номенклатура": str(row["product"]) if pd.notna(row["product"]) else "Без названия",
             "Артикул": str(row.get("article", "")) if pd.notna(row.get("article", "")) else "",
             "Характеристика": str(row.get("characteristic", "")) if pd.notna(row.get("characteristic", "")) else "",

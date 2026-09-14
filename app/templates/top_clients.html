@@ -37,6 +37,7 @@
                 <thead>
                     <tr>
                         <th>Клиент</th>
+                        <th>Менеджер</th>
                         <th>Территория</th>
                         <th>Номенклатура</th>
                         <th>Шт</th>
@@ -53,14 +54,15 @@
             <div class="table-wrap">
                 <table>
                     <thead>
-                        <tr>
-                            <th>Клиент</th>
-                            <th>Номенклатура</th>
-                            <th>Шт</th>
-                            <th>Кв.м</th>
-                            <th>Сумма</th>
-                            <th>Пометка</th>
-                        </tr>
+                    <tr>
+                        <th>Клиент</th>
+                        <th>Менеджер</th>
+                        <th>Номенклатура</th>
+                        <th>Шт</th>
+                        <th>Кв.м</th>
+                        <th>Сумма</th>
+                        <th>Пометка</th>
+                    </tr>
                     </thead>
                     <tbody id="internalBody"></tbody>
                 </table>
@@ -97,6 +99,7 @@ async function generateReport() {
     document.getElementById('tableBody').innerHTML = result.data.map(d => `
         <tr>
             <td><strong>${d['Клиент'] || ''}</strong></td>
+            <td>${d.manager || ''}</td>
             <td>${d.territory || ''}</td>
             <td>${d['Номенклатура'] || ''}</td>
             <td>${d['Шт'] || 0}</td>
@@ -110,6 +113,7 @@ async function generateReport() {
         document.getElementById('internalBody').innerHTML = internal.map(d => `
             <tr>
                 <td><strong>${d['Клиент'] || ''}</strong></td>
+                <td>${d.manager || ''}</td>
                 <td>${d['Номенклатура'] || ''}</td>
                 <td>${d['Шт'] || 0}</td>
                 <td>${d['Кв.м'] || 0}</td>

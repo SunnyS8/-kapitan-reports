@@ -58,10 +58,13 @@ def generate_sales_products(filepaths: list[Path]) -> dict:
 
     internal_total = sum(r["Сумма"] for r in internal_rows)
 
-    # Territory mapping from raw df
+    # Territory and Manager mapping from raw df
     city_map = {}
+    manager_map = {}
     if "city" in df.columns:
         city_map = df.groupby("product", dropna=False)["city"].agg(lambda x: next((v for v in x if pd.notna(v) and str(v).strip() and str(v).lower() not in ("nan", "none", "")), ""))
+    if "manager" in df.columns:
+        manager_map = df.groupby("product", dropna=False)["manager"].agg(lambda x: next((v for v in x if pd.notna(v) and str(v).strip() and str(v).lower() not in ("nan", "none", "")), ""))
 
     grouped = df.groupby("product", dropna=False).agg(
         revenue=("sum", "sum"),
@@ -92,6 +95,7 @@ def generate_sales_products(filepaths: list[Path]) -> dict:
             "share": float(row["share"]),
             "cum_share": float(row["cum_share"]),
             "territory": str(city_map.get(row["product"], "")) if row["product"] in city_map.index else "",
+            "manager": str(manager_map.get(row["product"], "")) if row["product"] in manager_map.index else "",
         })
 
     abc_counts = grouped["category"].value_counts().to_dict()

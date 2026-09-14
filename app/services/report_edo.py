@@ -51,6 +51,7 @@ def generate_edo(filepaths: list[Path]) -> dict:
             "Состояние": state,
             "Остановлен": stopped,
             "territory": str(row.get("city", "")) if "city" in df.columns else "",
+            "manager": str(row.get("manager", "")) if "manager" in df.columns else "",
         }
         data.append(item)
 

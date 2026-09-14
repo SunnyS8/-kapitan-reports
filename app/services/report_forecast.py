@@ -35,10 +35,13 @@ def generate_forecast(filepaths: list[Path]) -> dict:
     if fact_df is None:
         return {"summary": {"error": "Нет данных о факте продаж", "debug": debug_all}, "data": [], "chart": {}}
 
-    # Territory mapping from fact_df (before filtering internal)
+    # Territory and Manager mapping from fact_df
     city_map = {}
+    manager_map = {}
     if "city" in fact_df.columns:
         city_map = fact_df.groupby("client", dropna=False)["city"].agg(lambda x: next((v for v in x if pd.notna(v) and str(v).strip() and str(v).lower() not in ("nan", "none", "")), ""))
+    if "manager" in fact_df.columns:
+        manager_map = fact_df.groupby("client", dropna=False)["manager"].agg(lambda x: next((v for v in x if pd.notna(v) and str(v).strip() and str(v).lower() not in ("nan", "none", "")), ""))
 
     # Внутренние контрагенты (для НДС) — отдельным блоком, из факта исключаются.
     internal_rows = []
@@ -51,11 +54,13 @@ def generate_forecast(filepaths: list[Path]) -> dict:
             ig = ig.sort_values("sum", ascending=False)
             for _, row in ig.iterrows():
                 territory = str(city_map.get(row["client"], "")) if row["client"] in city_map.index else ""
+                manager = str(manager_map.get(row["client"], "")) if row["client"] in manager_map.index else ""
                 internal_rows.append({
                     "Клиент": str(row["client"]) if pd.notna(row["client"]) else "Без имени",
                     "Факт": round(float(row["sum"]), 2),
                     "Пометка": INTERNAL_CLIENT_TAG,
                     "territory": territory,
+                    "manager": manager,
                 })
 
     data = []
@@ -74,11 +79,13 @@ def generate_forecast(filepaths: list[Path]) -> dict:
                 pct = (fact_val / plan_val * 100) if plan_val else 0
                 status = "ok" if pct >= 100 else "warn" if pct >= 70 else "danger"
                 territory = str(city_map.get(row["client"], "")) if row["client"] in city_map.index else ""
-                data.append({"name": client, "plan": round(plan_val, 2), "fact": round(fact_val, 2), "pct": round(pct, 1), "status": status, "territory": territory})
+                manager = str(manager_map.get(row["client"], "")) if row["client"] in manager_map.index else ""
+                data.append({"name": client, "plan": round(plan_val, 2), "fact": round(fact_val, 2), "pct": round(pct, 1), "status": status, "territory": territory, "manager": manager})
         else:
             for _, row in fact_by_client.iterrows():
                 territory = str(city_map.get(row["client"], "")) if row["client"] in city_map.index else ""
-                data.append({"name": str(row["client"]) if pd.notna(row["client"]) else "Без имени", "plan": 0, "fact": round(float(row.get("sum", 0)), 2), "pct": 0, "status": "no_plan", "territory": territory})
+                manager = str(manager_map.get(row["client"], "")) if row["client"] in manager_map.index else ""
+                data.append({"name": str(row["client"]) if pd.notna(row["client"]) else "Без имени", "plan": 0, "fact": round(float(row.get("sum", 0)), 2), "pct": 0, "status": "no_plan", "territory": territory, "manager": manager})
 
     total_plan = sum(d["plan"] for d in data)
     total_fact = sum(d["fact"] for d in data)

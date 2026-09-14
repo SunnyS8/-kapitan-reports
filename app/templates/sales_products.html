@@ -34,6 +34,7 @@
                 <thead>
                     <tr>
                         <th>Товар</th>
+                        <th>Менеджер</th>
                         <th>Территория</th>
                         <th>Категория</th>
                         <th>Выручка</th>
@@ -88,6 +89,7 @@ async function generateReport() {
     document.getElementById('tableBody').innerHTML = result.data.map(d => `
         <tr>
             <td><strong>${d.product}</strong></td>
+            <td>${d.manager || ''}</td>
             <td>${d.territory || ''}</td>
             <td><span class="badge badge-${d.category.toLowerCase()}">${d.category}</span></td>
             <td>${fmt(d.revenue)} ₽</td>

@@ -33,6 +33,7 @@
                 <thead>
                     <tr>
                         <th>Клиент</th>
+                        <th>Менеджер</th>
                         <th>Территория</th>
                         <th>Номер счёта</th>
                         <th>Дата</th>
@@ -71,7 +72,7 @@ async function generateReport() {
         const badge = d.status === 'ok' ? '<span class="badge badge-ok">OK</span>'
             : d.status === 'warn' ? '<span class="badge badge-warn">Просрочка</span>'
             : '<span class="badge badge-danger">Критично</span>';
-        return `<tr><td><strong>${d.client}</strong></td><td>${d.territory || ''}</td><td>${d.invoice_number}</td><td>${d.date}</td><td>${fmt(d.sum)} ₽</td><td>${d.overdue_days}</td><td>${badge}</td></tr>`;
+        return `<tr><td><strong>${d.client}</strong></td><td>${d.manager || ''}</td><td>${d.territory || ''}</td><td>${d.invoice_number}</td><td>${d.date}</td><td>${fmt(d.sum)} ₽</td><td>${d.overdue_days}</td><td>${badge}</td></tr>`;
     }).join('');
 
     if (chartInst) chartInst.destroy();

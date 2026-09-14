@@ -34,6 +34,7 @@
                 <thead>
                     <tr>
                         <th>Клиент</th>
+                        <th>Менеджер</th>
                         <th>Территория</th>
                         <th>Адрес</th>
                         <th>Номер накладной</th>
@@ -72,6 +73,7 @@ async function generateReport() {
     document.getElementById('tableBody').innerHTML = result.data.map(d => `
         <tr>
             <td><strong>${d['Клиент'] || ''}</strong></td>
+            <td>${d.manager || ''}</td>
             <td>${d.territory || ''}</td>
             <td>${d['Адрес'] || ''}</td>
             <td>${d['Номер накладной'] || ''}</td>

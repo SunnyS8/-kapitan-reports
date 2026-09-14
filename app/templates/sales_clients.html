@@ -38,6 +38,7 @@
                 <thead>
                     <tr>
                         <th>Клиент</th>
+                        <th>Менеджер</th>
                         <th>Территория</th>
                         <th>Выручка</th>
                         <th>Кол-во продаж</th>
@@ -119,6 +120,7 @@ async function generateReport() {
         tbody.innerHTML = result.data.map(d => `
             <tr>
                 <td><strong>${d.client}</strong></td>
+                <td>${d.manager || ''}</td>
                 <td>${d.territory || ''}</td>
                 <td>${fmt(d.revenue)} &#8381;</td>
                 <td>${d.sales_count}</td>

@@ -653,6 +653,7 @@ def _read_stock_generic_raw(raw: pd.DataFrame, filepath: Path, fmt: str) -> tupl
         "warehouse": ["склад"],
         "product": ["номенклатура", "товар", "наименование"],
         "characteristic": ["характеристика", "цвет", "ширина", "фактура"],
+        "manager": ["менеджер", "ответственный"],
         "start_balance": ["нач.остаток", "начальный остаток"],
         "income": ["приход", "поступление"],
         "outcome": ["расход", "продажи"],
@@ -740,6 +741,7 @@ def read_edo_excel(filepath: Path) -> tuple[pd.DataFrame, dict]:
         "sum": ["сумма"],
         "state": ["состояние"],
         "stopped": ["остановлен"],
+        "manager": ["менеджер", "ответственный"],
     })
 
     debug["mapped"] = col_map
@@ -786,6 +788,7 @@ def read_plan_excel(filepath: Path) -> tuple[pd.DataFrame, dict]:
         "product": ["номенклатура", "товар"],
         "plan": ["план"],
         "fact": ["факт"],
+        "manager": ["менеджер", "ответственный"],
     })
 
     debug["mapped"] = col_map
