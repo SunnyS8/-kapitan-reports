@@ -38,6 +38,7 @@
                 <thead>
                     <tr>
                         <th>Клиент</th>
+                        <th>Территория</th>
                         <th>Выручка</th>
                         <th>Кол-во продаж</th>
                         <th>Средний чек</th>
@@ -113,11 +114,12 @@ async function generateReport() {
 
     const tbody = document.getElementById('tableBody');
     if (!result.data || result.data.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#64748b;">Нет данных для отображения</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#64748b;">Нет данных для отображения</td></tr>';
     } else {
         tbody.innerHTML = result.data.map(d => `
             <tr>
                 <td><strong>${d.client}</strong></td>
+                <td>${d.territory || ''}</td>
                 <td>${fmt(d.revenue)} &#8381;</td>
                 <td>${d.sales_count}</td>
                 <td>${fmt(d.avg_check)} &#8381;</td>

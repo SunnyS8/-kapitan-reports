@@ -50,6 +50,7 @@ def generate_edo(filepaths: list[Path]) -> dict:
             "Сумма": round(_num(row.get("sum", 0)), 2),
             "Состояние": state,
             "Остановлен": stopped,
+            "territory": str(row.get("city", "")) if "city" in df.columns else "",
         }
         data.append(item)
 

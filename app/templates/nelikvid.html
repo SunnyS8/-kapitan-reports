@@ -34,6 +34,7 @@
                 <thead>
                     <tr>
                         <th>Товар</th>
+                        <th>Территория</th>
                         <th>Характеристика</th>
                         <th>Склад</th>
                         <th>Кол-во</th>
@@ -78,6 +79,7 @@ async function generateReport() {
     document.getElementById('tableBody').innerHTML = result.data.map(d => `
         <tr>
             <td><strong>${d.product || ''}</strong></td>
+            <td>${d.territory || ''}</td>
             <td>${d.characteristic || ''}</td>
             <td>${d.warehouse || ''}</td>
             <td>${d.end_balance || 0}</td>

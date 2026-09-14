@@ -77,6 +77,7 @@ def generate_dynamics(filepaths: list[Path]) -> dict:
             "sales_count": sales_cnt,
             "avg_check": round(rev / sales_cnt, 2) if sales_cnt else 0.0,
             "mom_pct": mom_pct,
+            "territory": str(row.get("city", "")) if "city" in df.columns else "",
         })
         prev_revenue = rev
 

@@ -77,6 +77,7 @@ def generate_sales_clients(filepaths: list[Path]) -> dict:
         for field in ("address", "city", "organization", "manager"):
             if field in grouped.columns:
                 item[field] = str(row[field])
+        item["territory"] = str(row["city"]) if "city" in grouped.columns and pd.notna(row["city"]) else ""
         data.append(item)
 
     # Внутренние контрагенты — отдельным блоком с пометкой

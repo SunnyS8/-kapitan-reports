@@ -144,6 +144,7 @@ def generate_nelikvid(filepaths: list[Path], threshold_days: int = 180) -> dict:
                         "width": width,
                         "sum": round(sum_val, 2),
                         "category": category,
+                        "territory": str(row.get("city", "")) if "city" in stock_df.columns else "",
                     })
         except Exception:
             pass
@@ -162,6 +163,7 @@ def generate_nelikvid(filepaths: list[Path], threshold_days: int = 180) -> dict:
                             item[str(col)] = round(float(val), 2)
                         else:
                             item[str(col)] = str(val)
+                    item["territory"] = str(row.get("city", "")) if "city" in df.columns else ""
                     data.append(item)
             except Exception:
                 continue

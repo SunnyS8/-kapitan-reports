@@ -37,6 +37,7 @@
                 <thead>
                     <tr>
                         <th>Клиент</th>
+                        <th>Территория</th>
                         <th>Номенклатура</th>
                         <th>Шт</th>
                         <th>Кв.м</th>
@@ -96,6 +97,7 @@ async function generateReport() {
     document.getElementById('tableBody').innerHTML = result.data.map(d => `
         <tr>
             <td><strong>${d['Клиент'] || ''}</strong></td>
+            <td>${d.territory || ''}</td>
             <td>${d['Номенклатура'] || ''}</td>
             <td>${d['Шт'] || 0}</td>
             <td>${d['Кв.м'] || 0}</td>

@@ -86,6 +86,7 @@ def generate_debt_manager(filepaths: list[Path]) -> dict:
             "Долг 11-15": round(_num(row.get("debt_bucket_11_15", 0)), 2),
             "Долг 16-29": round(_num(row.get("debt_bucket_16_29", 0)), 2),
             "Долг свыше 30": round(_num(row.get("debt_bucket_over_30", 0)), 2),
+            "territory": str(row.get("city", "")) if "city" in df.columns else "",
         })
 
     data.sort(key=lambda x: x["Общий долг"], reverse=True)

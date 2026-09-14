@@ -38,7 +38,7 @@ def generate_debt(filepaths: list[Path]) -> dict:
         sum_val = float(row.get("sum", 0)) if pd.notna(row.get("sum")) else 0
         days = int(row.get("overdue_days", 0)) if pd.notna(row.get("overdue_days")) else 0
         status = "danger" if days > 180 else "warn" if days > 90 else "ok"
-        data.append({"client": client, "invoice_number": invoice, "date": date_str, "sum": round(sum_val, 2), "overdue_days": days, "status": status})
+        data.append({"client": client, "invoice_number": invoice, "date": date_str, "sum": round(sum_val, 2), "overdue_days": days, "status": status, "territory": str(row.get("city", "")) if "city" in df.columns else ""})
 
     data.sort(key=lambda x: x["overdue_days"], reverse=True)
 

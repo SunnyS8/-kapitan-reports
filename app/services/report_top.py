@@ -56,12 +56,18 @@ def generate_top_products(filepaths: list[Path]) -> dict:
     total = float(grouped["sum"].sum())
     top = grouped.head(TOP_N).copy()
 
+    # Territory mapping from df
+    city_map = {}
+    if "city" in df.columns:
+        city_map = df.groupby("product", dropna=False)["city"].agg(lambda x: next((v for v in x if pd.notna(v) and str(v).strip() and str(v).lower() not in ("nan", "none", "")), ""))
+
     data = []
     for _, row in top.iterrows():
         item = {
             "Номенклатура": str(row["product"]) if pd.notna(row["product"]) else "Без названия",
             "Количество": int(row.get("quantity", 0)),
             "Сумма": _round(row["sum"]),
+            "territory": str(city_map.get(row["product"], "")) if row["product"] in city_map.index else "",
         }
         if "quantity_m2" in row.index:
             item["Количество м2"] = _round(row.get("quantity_m2", 0))
@@ -112,6 +118,11 @@ def generate_top_clients(filepaths: list[Path]) -> dict:
     internal_df = df[df["is_internal"]]
     df = df[~df["is_internal"]].drop(columns=["is_internal"])
 
+    # Territory mapping from df for clients
+    city_map = {}
+    if "city" in df.columns:
+        city_map = df.groupby("client", dropna=False)["city"].agg(lambda x: next((v for v in x if pd.notna(v) and str(v).strip() and str(v).lower() not in ("nan", "none", "")), ""))
+
     grouped = df.groupby(["client", "product"], dropna=False).agg(**agg).reset_index()
     grouped = grouped.sort_values("sum", ascending=False)
 
@@ -125,6 +136,7 @@ def generate_top_clients(filepaths: list[Path]) -> dict:
             "Номенклатура": str(row["product"]) if pd.notna(row["product"]) else "Без названия",
             "Шт": int(row.get("quantity", 0)),
             "Сумма": _round(row["sum"]),
+            "territory": str(city_map.get(row["client"], "")) if row["client"] in city_map.index else "",
         }
         if "quantity_m2" in row.index:
             item["Кв.м"] = _round(row.get("quantity_m2", 0))
@@ -141,11 +153,13 @@ def generate_top_clients(filepaths: list[Path]) -> dict:
         ig = internal_df.groupby(["client", "product"], dropna=False).agg(**ia).reset_index()
         ig = ig.sort_values("sum", ascending=False)
         for _, row in ig.iterrows():
+            territory = str(city_map.get(row["client"], "")) if row["client"] in city_map.index else ""
             item = {
                 "Клиент": str(row["client"]) if pd.notna(row["client"]) else "Без имени",
                 "Номенклатура": str(row["product"]) if pd.notna(row["product"]) else "Без названия",
                 "Шт": int(row.get("quantity", 0)),
                 "Сумма": _round(row["sum"]),
+                "territory": territory,
                 "Пометка": INTERNAL_CLIENT_TAG,
             }
             if "quantity_m2" in row.index:
