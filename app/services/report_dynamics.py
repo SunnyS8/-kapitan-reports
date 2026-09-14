@@ -43,12 +43,12 @@ def generate_dynamics(filepaths: list[Path]) -> dict:
             continue
 
     if not frames or not any("sum" in df.columns for df in frames):
-        return {"summary": {"error": "Не удалось распарсить файлы продаж", "debug": debug_all}, "data": [], "chart": {}}
+        return {"summary": {"error": "Не удалось распарсить файлы продаж", "debug": debug_all}, "data": [], "chart": {}, "categories": [], "top_products": []}
 
     df = pd.concat(frames, ignore_index=True)
 
     if "date" not in df.columns:
-        return {"summary": {"error": "В выгрузках нет колонки с датами — нельзя построить помесячную динамику.", "debug": debug_all}, "data": [], "chart": {}}
+        return {"summary": {"error": "В выгрузках нет колонки с датами — нельзя построить помесячную динамику.", "debug": debug_all}, "data": [], "chart": {}, "categories": [], "top_products": []}
 
     df["date"] = pd.to_datetime(df["date"], errors="coerce", dayfirst=True)
     df = df.dropna(subset=["date"])
@@ -61,6 +61,11 @@ def generate_dynamics(filepaths: list[Path]) -> dict:
 
     total = float(grouped["revenue"].sum())
     total_sales = int(grouped["sales_count"].sum())
+
+    # --- Уникальные клиенты и количество товара по месяцам ---
+    clients_per_period = df.groupby("period")["client"].nunique() if "client" in df.columns else pd.Series(dtype=int)
+    quantity_per_period = df.groupby("period")["quantity"].sum() if "quantity" in df.columns else pd.Series(dtype=float)
+    quantity_m2_per_period = df.groupby("period")["quantity_m2"].sum() if "quantity_m2" in df.columns else pd.Series(dtype=float)
 
     data = []
     prev_revenue = None
@@ -80,6 +85,9 @@ def generate_dynamics(filepaths: list[Path]) -> dict:
             period_managers = df[df["period"] == row["period"]]["manager"].dropna()
             if len(period_managers):
                 manager = str(period_managers.iloc[0])
+        client_count = int(clients_per_period.get(row["period"], 0)) if row["period"] in clients_per_period.index else 0
+        qty = float(quantity_per_period.get(row["period"], 0)) if row["period"] in quantity_per_period.index else 0
+        qty_m2 = float(quantity_m2_per_period.get(row["period"], 0)) if row["period"] in quantity_m2_per_period.index else 0
         data.append({
             "period": row["period"],
             "month": _month_label(row["period"]),
@@ -89,6 +97,9 @@ def generate_dynamics(filepaths: list[Path]) -> dict:
             "mom_pct": mom_pct,
             "territory": territory,
             "manager": manager,
+            "client_count": client_count,
+            "quantity": round(qty, 2),
+            "quantity_m2": round(qty_m2, 2),
         })
         prev_revenue = rev
 
@@ -98,6 +109,83 @@ def generate_dynamics(filepaths: list[Path]) -> dict:
 
     best = max(data, key=lambda d: d["revenue"]) if data else {}
     worst = min(data, key=lambda d: d["revenue"]) if data else {}
+
+    # --- Продажи по складам помесячно ---
+    wh_col = "warehouse" if "warehouse" in df.columns else "city"
+    by_warehouse = []
+    chart_warehouse = {"labels": [], "datasets": []}
+    if wh_col in df.columns:
+        wh = df[wh_col].fillna("Без склада").astype(str)
+        wg = df.groupby([wh, "period"]).agg(
+            revenue=("sum", "sum"),
+            sales_count=("sum", "count"),
+        ).reset_index()
+        by_warehouse = [
+            {
+                "period": row["period"],
+                "month": _month_label(row["period"]),
+                "warehouse": row[wh_col],
+                "revenue": round(float(row["revenue"]), 2),
+                "sales_count": int(row["sales_count"]),
+            }
+            for _, row in wg.iterrows()
+        ]
+        by_warehouse.sort(key=lambda d: d["period"])
+        warehouses = sorted({d["warehouse"] for d in by_warehouse})
+        months = []
+        for p in sorted({d["period"] for d in by_warehouse}):
+            if p not in months:
+                months.append(p)
+        rev_by = {}
+        for d in by_warehouse:
+            rev_by.setdefault(d["warehouse"], {})[d["period"]] = d["revenue"]
+        chart_warehouse = {
+            "labels": [_month_label(p) for p in months],
+            "datasets": [
+                {"label": w, "values": [round(rev_by.get(w, {}).get(p, 0), 2) for p in months]}
+                for w in warehouses
+            ],
+        }
+
+    # --- Категории по месяцам ---
+    categories = []
+    if "category" in df.columns:
+        cat_period = df.groupby(["category", "period"])["sum"].sum().reset_index()
+        cats = sorted({c for c in cat_period["category"].unique()})
+        cat_periods = sorted(cat_period["period"].unique())
+        for cat in cats:
+            cat_data = cat_period[cat_period["category"] == cat].set_index("period")["sum"].to_dict()
+            categories.append({
+                "category": cat,
+                "values": [round(float(cat_data.get(p, 0)), 2) for p in cat_periods],
+                "periods": cat_periods,
+            })
+        # Таблица категорий по месяцам
+        cat_table = []
+        for _, row in cat_period.iterrows():
+            cat_table.append({
+                "period": row["period"],
+                "month": _month_label(row["period"]),
+                "category": str(row["category"]),
+                "revenue": round(float(row["sum"]), 2),
+            })
+    else:
+        cat_table = []
+
+    # --- Топ-5 товаров по месяцам ---
+    top_products = []
+    if "product" in df.columns:
+        for period_val in sorted(df["period"].unique()):
+            period_df = df[df["period"] == period_val]
+            top = period_df.groupby("product")["sum"].sum().sort_values(ascending=False).head(5).reset_index()
+            for rank, (_, row) in enumerate(top.iterrows(), 1):
+                top_products.append({
+                    "period": period_val,
+                    "month": _month_label(period_val),
+                    "product": str(row["product"]),
+                    "revenue": round(float(row["sum"]), 2),
+                    "rank": rank,
+                })
 
     # Внутренние контрагенты отдельным блоком (по месяцам)
     internal_rows = []
@@ -143,44 +231,10 @@ def generate_dynamics(filepaths: list[Path]) -> dict:
         "mom": [d["mom_pct"] if d["mom_pct"] is not None else 0 for d in data],
     }
 
-    # --- Продажи по складам помесячно ---
-    wh_col = "warehouse" if "warehouse" in df.columns else "city"
-    by_warehouse = []
-    chart_warehouse = {"labels": [], "datasets": []}
-    if wh_col in df.columns:
-        wh = df[wh_col].fillna("Без склада").astype(str)
-        wg = df.groupby([wh, "period"]).agg(
-            revenue=("sum", "sum"),
-            sales_count=("sum", "count"),
-        ).reset_index()
-        by_warehouse = [
-            {
-                "period": row["period"],
-                "month": _month_label(row["period"]),
-                "warehouse": row[wh_col],
-                "revenue": round(float(row["revenue"]), 2),
-                "sales_count": int(row["sales_count"]),
-            }
-            for _, row in wg.iterrows()
-        ]
-        by_warehouse.sort(key=lambda d: d["period"])
-        warehouses = sorted({d["warehouse"] for d in by_warehouse})
-        months = []
-        for p in sorted({d["period"] for d in by_warehouse}):
-            if p not in months:
-                months.append(p)
-        rev_by = {}
-        for d in by_warehouse:
-            rev_by.setdefault(d["warehouse"], {})[d["period"]] = d["revenue"]
-        chart_warehouse = {
-            "labels": [_month_label(p) for p in months],
-            "datasets": [
-                {"label": w, "values": [round(rev_by.get(w, {}).get(p, 0), 2) for p in months]}
-                for w in warehouses
-            ],
-        }
-
     return {"summary": summary, "data": data, "chart": chart,
             "chart_warehouse": chart_warehouse,
             "by_warehouse": by_warehouse,
-            "internal": internal_rows if internal_rows else []}
+            "internal": internal_rows if internal_rows else [],
+            "categories": categories,
+            "cat_table": cat_table,
+            "top_products": top_products}

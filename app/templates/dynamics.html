@@ -6,7 +6,7 @@
 {% block content %}
 <div class="page-header">
     <h1>Динамика продаж</h1>
-    <p>Помесячная выручка, средний чек, прирост к предыдущему месяцу</p>
+    <p>Помесячная выручка, клиенты, количество, категории, топ товаров</p>
 </div>
 
 <div class="card">
@@ -35,8 +35,11 @@
                         <th>Месяц</th>
                         <th>Менеджер</th>
                         <th>Территория</th>
+                        <th>Клиентов</th>
                         <th>Выручка</th>
-                        <th>Продаж</th>
+                        <th>Кол-во продаж</th>
+                        <th>Кол-во, шт</th>
+                        <th>Кв.м</th>
                         <th>Средний чек</th>
                         <th>К прошлому месяцу</th>
                     </tr>
@@ -114,8 +117,11 @@ async function generateReport() {
             <td><strong>${d.month}</strong></td>
             <td>${d.manager || ''}</td>
             <td>${d.territory || ''}</td>
+            <td>${d.client_count || 0}</td>
             <td>${fmt(d.revenue)} ₽</td>
             <td>${fmt(d.sales_count)}</td>
+            <td>${fmt(d.quantity || 0)}</td>
+            <td>${fmt(d.quantity_m2 || 0)}</td>
             <td>${fmt(d.avg_check)} ₽</td>
             <td>${mom}</td>
         </tr>`;
@@ -203,6 +209,64 @@ async function generateReport() {
     if (result.filename) document.getElementById('downloadLink').href = '/api/download/' + result.filename;
     document.getElementById('result').style.display = 'block';
     showNoteBlock();
+
+    // --- Категории по месяцам ---
+    const cats = result.categories || [];
+    if (cats.length) {
+        const catBlock = document.createElement('div');
+        catBlock.id = 'categoryBlock';
+        catBlock.className = 'card';
+        catBlock.style.marginTop = '32px';
+        const catLabels = [...new Set(cats.flatMap(c => c.periods || []))].sort();
+        let catHtml = '<h2 style="margin-bottom:16px;">Выручка по категориям помесячно</h2>';
+        catHtml += '<div class="chart-container" style="margin-bottom:16px;"><canvas id="catChart"></canvas></div>';
+        catHtml += '<div class="table-wrap"><table><thead><tr><th>Категория</th>' + catLabels.map(l => `<th>${esc(l)}</th>`).join('') + '</tr></thead><tbody>';
+        cats.forEach(c => {
+            catHtml += `<tr><td><strong>${esc(c.category)}</strong></td>` + c.values.map(v => `<td>${fmt(v)} ₽</td>`).join('') + '</tr>';
+        });
+        catHtml += '</tbody></table></div>';
+        catBlock.innerHTML = catHtml;
+        document.getElementById('result').appendChild(catBlock);
+
+        // Category chart
+        const catDatasets = cats.map((c, i) => ({
+            label: c.category,
+            data: c.values,
+            borderColor: PALETTE[i % PALETTE.length],
+            backgroundColor: PALETTE[i % PALETTE.length] + '33',
+            tension: 0.3,
+            fill: false,
+        }));
+        new Chart(document.getElementById('catChart'), {
+            type: 'line',
+            data: { labels: catLabels, datasets: catDatasets },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+        });
+    }
+
+    // --- Топ-5 товаров по месяцам ---
+    const topProds = result.top_products || [];
+    if (topProds.length) {
+        const tpBlock = document.createElement('div');
+        tpBlock.id = 'topProductsBlock';
+        tpBlock.className = 'card';
+        tpBlock.style.marginTop = '32px';
+        const tpPeriods = [...new Set(topProds.map(d => d.month))].sort();
+        const topGrouped = {};
+        topProds.forEach(d => {
+            if (!topGrouped[d.month]) topGrouped[d.month] = [];
+            topGrouped[d.month].push(d);
+        });
+        let tpHtml = '<h2 style="margin-bottom:16px;">Топ-5 товаров по месяцам</h2><div class="table-wrap"><table><thead><tr><th>Месяц</th><th>#</th><th>Товар</th><th>Выручка</th></tr></thead><tbody>';
+        tpPeriods.forEach(p => {
+            (topGrouped[p] || []).forEach(d => {
+                tpHtml += `<tr><td><strong>${esc(d.month)}</strong></td><td>${d.rank}</td><td>${esc(d.product)}</td><td>${fmt(d.revenue)} ₽</td></tr>`;
+            });
+        });
+        tpHtml += '</tbody></table></div>';
+        tpBlock.innerHTML = tpHtml;
+        document.getElementById('result').appendChild(tpBlock);
+    }
 }
 
 const PALETTE = ['#3b82f6', '#eab308', '#22c55e', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316', '#ec4899', '#84cc16', '#14b8a6'];
