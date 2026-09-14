@@ -26,11 +26,15 @@ KNOWLEDGE_MONTHLY = BASE_KNOWLEDGE / "07 - Ежемесячные отчёты"
 for _d in (BASE_KNOWLEDGE, KNOWLEDGE_ANALYTICS, KNOWLEDGE_MONTHLY):
     _d.mkdir(parents=True, exist_ok=True)
 
-# Папка входных выгрузок из 1С + справочники. На Railway она находится
-# на Persistent Volume вместе с загруженными отчётами.
-INBOX_DIR = DATA_DIR / "inbox"
+# Папка входных выгрузок из 1С + справочники.
+# На Railway данные хранятся на Persistent Volume (/app/data).
+# Также проверяем корень репозитория, чтобы справочники из git были доступны.
+_repo_inbox = BASE_DIR / "inbox"
+INBOX_DIR = DATA_DIR / "inbox" if (DATA_DIR / "inbox").exists() else _repo_inbox
 REF_DIR = INBOX_DIR / "Справочники"
-
+if not REF_DIR.exists() and (_repo_inbox / "Справочники").exists():
+    REF_DIR = _repo_inbox / "Справочники"
+INBOX_DIR = REF_DIR.parent if REF_DIR.exists() else INBOX_DIR
 for _d in (INBOX_DIR, REF_DIR):
     _d.mkdir(parents=True, exist_ok=True)
 
