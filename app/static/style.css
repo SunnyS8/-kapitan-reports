@@ -446,6 +446,16 @@ tr:hover td { background: #f8fafc; }
     font-weight: 600;
     white-space: nowrap;
 }
+.date-display {
+    background: var(--primary-light);
+    color: var(--primary);
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 16px;
+    text-align: center;
+}
 @media (max-width: 768px) {
     .date-range-picker {
         flex-wrap: wrap;
