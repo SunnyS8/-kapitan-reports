@@ -1,10 +1,11 @@
 """Отчёт: Остатки на складах."""
 import pandas as pd
+from typing import Optional
 from pathlib import Path
 
 
-def generate_inventory(filepaths: list[Path], threshold_days: int = 90) -> dict:
-    from app.services.excel_parser import read_stock_excel
+def generate_inventory(filepaths: list[Path], threshold_days: int = 90, date_from: Optional[str] = None, date_to: Optional[str] = None) -> dict:
+    from app.services.excel_parser import read_stock_excel, _filter_by_date
 
     frames = []
     debug_all = []
@@ -21,6 +22,7 @@ def generate_inventory(filepaths: list[Path], threshold_days: int = 90) -> dict:
         return {"summary": {"error": "Не удалось распарсить файлы", "debug": debug_all}, "data": [], "chart": {}}
 
     df = pd.concat(frames, ignore_index=True)
+    df = _filter_by_date(df, date_from, date_to)
 
     data = []
     for _, row in df.iterrows():

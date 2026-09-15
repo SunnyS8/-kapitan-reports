@@ -89,7 +89,7 @@ async function generateReport() {
     const names = selectedFiles();
     if (!names.length) { alert('Выберите хотя бы один файл'); return; }
 
-    const res = await fetch('/api/generate/sales_clients', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({files: names}) });
+    const res = await fetch('/api/generate/sales_clients', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({files: names, ...getDateRange()}) });
     const result = await res.json();
 
     if (res.status !== 200) {

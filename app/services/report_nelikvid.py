@@ -1,5 +1,6 @@
 """Отчёт: Неликвиды (по формуле Ирины)."""
 import pandas as pd
+from typing import Optional
 import re
 from pathlib import Path
 
@@ -26,7 +27,7 @@ def normalize(text: str) -> str:
     return str(text).strip().lower()
 
 
-def generate_nelikvid(filepaths: list[Path], threshold_days: int = 180) -> dict:
+def generate_nelikvid(filepaths: list[Path], threshold_days: int = 180, date_from: Optional[str] = None, date_to: Optional[str] = None) -> dict:
     """
     Отчёт по неликвидам.
     Формула: Сумма = Цена_за_м² × длина(м) × ширина(см) × кол-во_рулонов
@@ -58,6 +59,8 @@ def generate_nelikvid(filepaths: list[Path], threshold_days: int = 180) -> dict:
         except Exception:
             continue
 
+    stock_df = _filter_by_date(stock_df, date_from, date_to) if stock_df is not None else None
+
     data = []
 
     # Если есть файл неликвидов и остатков — работаем по формуле Ирины
@@ -82,7 +85,7 @@ def generate_nelikvid(filepaths: list[Path], threshold_days: int = 180) -> dict:
 
         # Парсинг остатков
         try:
-            from app.services.excel_parser import find_header_row, HEADER_KEYWORDS
+            from app.services.excel_parser import find_header_row, HEADER_KEYWORDS, _filter_by_date
             all_kws = []
             for kws in HEADER_KEYWORDS.values():
                 all_kws.extend(kws)

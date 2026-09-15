@@ -1,6 +1,7 @@
 """Отчёт: Задолженность клиента по менеджерам с бакетами (4.1)."""
 import math
 import pandas as pd
+from typing import Optional
 from pathlib import Path
 from datetime import datetime
 
@@ -16,11 +17,11 @@ def _num(v, default: float = 0.0) -> float:
         return default
 
 
-def generate_debt_manager(filepaths: list[Path]) -> dict:
+def generate_debt_manager(filepaths: list[Path], date_from: Optional[str] = None, date_to: Optional[str] = None) -> dict:
     """Задолженность по менеджерам/клиентам.
     Формат «как у Сергея»: Менеджер | Клиент | Организация | Отсрочка |
     Общий долг | Долг 1-10 | 11-15 | 16-29 | свыше 30."""
-    from app.services.excel_parser import read_invoice_excel
+    from app.services.excel_parser import read_invoice_excel, _filter_by_date
 
     frames = []
     debug_all = []
@@ -37,6 +38,7 @@ def generate_debt_manager(filepaths: list[Path]) -> dict:
         return {"summary": {"error": "Не удалось распарсить файлы", "debug": debug_all}, "data": [], "chart": {}}
 
     df = pd.concat(frames, ignore_index=True)
+    df = _filter_by_date(df, date_from, date_to)
     now = datetime.now()
 
     if "date" in df.columns and "debt_total" not in df.columns:

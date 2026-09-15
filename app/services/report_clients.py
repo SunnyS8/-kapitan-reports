@@ -1,12 +1,13 @@
 """Отчёт: Реестр клиентов (2.1)."""
 import pandas as pd
+from typing import Optional
 from pathlib import Path
 from datetime import datetime
 
 
-def generate_clients(filepaths: list[Path]) -> dict:
+def generate_clients(filepaths: list[Path], date_from: Optional[str] = None, date_to: Optional[str] = None) -> dict:
     """Реестр клиентов: Менеджер | Клиент | Город | Адрес | Телефон | Плательщик."""
-    from app.services.excel_parser import read_clients_excel
+    from app.services.excel_parser import read_clients_excel, _filter_by_date
 
     frames = []
     debug_all = []
@@ -23,6 +24,7 @@ def generate_clients(filepaths: list[Path]) -> dict:
         return {"summary": {"error": "Не удалось распарсить файлы", "debug": debug_all}, "data": [], "chart": {}}
 
     df = pd.concat(frames, ignore_index=True)
+    df = _filter_by_date(df, date_from, date_to)
 
     if "client" not in df.columns:
         return {"summary": {"error": "Колонка 'Клиент' не найдена", "debug": debug_all}, "data": [], "chart": {}}

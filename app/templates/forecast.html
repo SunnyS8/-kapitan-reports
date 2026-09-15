@@ -71,7 +71,7 @@ let chartInst = null;
 async function generateReport() {
     const names = selectedFiles();
     if (!names.length) { alert('Выберите хотя бы один файл'); return; }
-    const res = await fetch('/api/generate/forecast', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({files: names}) });
+    const res = await fetch('/api/generate/forecast', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({files: names, ...getDateRange()}) });
     if (!res.ok) { alert('Ошибка'); return; }
     const result = await res.json();
 

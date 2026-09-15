@@ -412,5 +412,33 @@ tr:hover td { background: #f8fafc; }
     .intro-line { width: 12px; margin: 0 5px; }
     .intro-step { font-size: 11px; }
     .intro-step b { width: 32px; height: 32px; }
-    .card-grid { grid-template-columns: 1fr; }
+    .date-range-picker {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    font-size: 14px;
+}
+.date-range-picker label {
+    font-weight: 600;
+    color: var(--muted);
+}
+.date-range-picker input[type="date"] {
+    padding: 4px 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 13px;
+}
+.date-range-picker input[type="date"]:focus {
+    border-color: var(--primary);
+    outline: none;
+}
+@media (max-width: 768px) {
+    .date-range-picker {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
 }

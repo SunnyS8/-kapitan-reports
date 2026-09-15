@@ -39,7 +39,7 @@ async function generateNote(ai) {
         const res = await fetch('/api/analyze/{{ report_type }}', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ files: names, ai: ai })
+            body: JSON.stringify({files: names, ai: ai, ...getDateRange()})
         });
         if (!res.ok) { let m = 'Ошибка'; try { const j = await res.json(); m = j.detail || m; } catch (e) {} throw new Error(m); }
         const result = await res.json();

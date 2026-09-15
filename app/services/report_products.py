@@ -1,13 +1,14 @@
 """Отчёт: Продажи по товарам (ABC-анализ)."""
 import pandas as pd
+from typing import Optional
 from pathlib import Path
 
-from app.services.excel_parser import compute_date_period
+from app.services.excel_parser import compute_date_period, _filter_by_date
 from app.services.internal_clients import is_internal_client
 from app.config import INTERNAL_CLIENT_TAG
 
 
-def generate_sales_products(filepaths: list[Path]) -> dict:
+def generate_sales_products(filepaths: list[Path], date_from: Optional[str] = None, date_to: Optional[str] = None) -> dict:
     from app.services.excel_parser import read_sales_excel
 
     frames = []
@@ -25,6 +26,7 @@ def generate_sales_products(filepaths: list[Path]) -> dict:
         return {"summary": {"error": "Не удалось распарсить файлы", "debug": debug_all}, "data": [], "chart": {}}
 
     df = pd.concat(frames, ignore_index=True)
+    df = _filter_by_date(df, date_from, date_to)
 
     period = compute_date_period(df)
 

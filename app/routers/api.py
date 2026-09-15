@@ -27,29 +27,54 @@ import app.config as app_config
 router = APIRouter()
 
 GENERATORS = {
-    "sales_clients": lambda fs: generate_sales_clients(fs),
-    "sales_products": lambda fs: generate_sales_products(fs),
-    "inventory": lambda fs: generate_inventory(fs),
-    "dynamics": lambda fs: generate_dynamics(fs),
-    "forecast": lambda fs: generate_forecast(fs),
-    "debt": lambda fs: generate_debt(fs),
-    "debt_manager": lambda fs: generate_debt_manager(fs),
-    "stock_dynamics": lambda fs: generate_stock_dynamics(fs),
-    "edo": lambda fs: generate_edo(fs),
-    "clients": lambda fs: generate_clients(fs),
-    "nelikvid": lambda fs: generate_nelikvid(fs),
-    "top_clients": lambda fs: generate_top_clients(fs),
-    "top_products": lambda fs: generate_top_products(fs),
+    "sales_clients": lambda fs, dt=None, du=None: generate_sales_clients(fs, dt, du),
+    "sales_products": lambda fs, dt=None, du=None: generate_sales_products(fs, dt, du),
+    "inventory": lambda fs, dt=None, du=None: generate_inventory(fs, dt, du),
+    "dynamics": lambda fs, dt=None, du=None: generate_dynamics(fs, dt, du),
+    "forecast": lambda fs, dt=None, du=None: generate_forecast(fs, dt, du),
+    "debt": lambda fs, dt=None, du=None: generate_debt(fs, dt, du),
+    "debt_manager": lambda fs, dt=None, du=None: generate_debt_manager(fs, dt, du),
+    "stock_dynamics": lambda fs, dt=None, du=None: generate_stock_dynamics(fs, dt, du),
+    "edo": lambda fs, dt=None, du=None: generate_edo(fs, dt, du),
+    "clients": lambda fs, dt=None, du=None: generate_clients(fs, dt, du),
+    "nelikvid": lambda fs, dt=None, du=None: generate_nelikvid(fs, dt, du),
+    "top_clients": lambda fs, dt=None, du=None: generate_top_clients(fs, dt, du),
+    "top_products": lambda fs, dt=None, du=None: generate_top_products(fs, dt, du),
 }
+
+
+def _filter_by_date(df: pd.DataFrame, date_from: Optional[str], date_to: Optional[str]) -> pd.DataFrame:
+    """Фильтрует DataFrame по колонке 'date'."""
+    if "date" not in df.columns:
+        return df
+    if date_from:
+        try:
+            d_from = pd.to_datetime(date_from, errors="coerce")
+            if pd.notna(d_from):
+                df = df[df["date"] >= d_from]
+        except Exception:
+            pass
+    if date_to:
+        try:
+            d_to = pd.to_datetime(date_to, errors="coerce") + pd.Timedelta(days=1)
+            if pd.notna(d_to):
+                df = df[df["date"] < d_to]
+        except Exception:
+            pass
+    return df
 
 
 class GenerateRequest(BaseModel):
     files: Optional[list[str]] = None  # имена файлов в INBOX_DIR
+    date_from: Optional[str] = None     # дата начала (YYYY-MM-DD)
+    date_to: Optional[str] = None       # дата окончания (YYYY-MM-DD)
 
 
 class AnalyzeRequest(BaseModel):
     files: Optional[list[str]] = None  # имена файлов в INBOX_DIR
     ai: bool = False                   # True — «от аналитика» через Hermes
+    date_from: Optional[str] = None
+    date_to: Optional[str] = None
 
 
 def _resolve_input_files(selected: Optional[list[str]]) -> list[Path]:
@@ -113,12 +138,14 @@ async def generate_report(report_type: str, req: Optional[GenerateRequest] = Non
 
     selected = req.files if req else None
     xlsx_files = _resolve_input_files(selected)
+    date_from = req.date_from if req else None
+    date_to = req.date_to if req else None
 
     if not xlsx_files:
         raise HTTPException(status_code=400, detail="Нет файлов выгрузок. Положите выгрузки в папку Входные_выгрузки.")
 
     try:
-        result = GENERATORS[report_type](xlsx_files)
+        result = GENERATORS[report_type](xlsx_files, date_from, date_to)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Ошибка генерации: {e}")
 
@@ -206,13 +233,15 @@ async def analyze_report(report_type: str, req: Optional[AnalyzeRequest] = None)
 
     selected = req.files if req else None
     ai_mode = bool(req.ai) if req else False
+    date_from = req.date_from if req else None
+    date_to = req.date_to if req else None
     xlsx_files = _resolve_input_files(selected)
 
     if not xlsx_files:
         raise HTTPException(status_code=400, detail="Нет файлов выгрузок. Положите выгрузки в папку Входные_выгрузки.")
 
     try:
-        result = GENERATORS[report_type](xlsx_files)
+        result = GENERATORS[report_type](xlsx_files, date_from, date_to)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Ошибка генерации отчёта: {e}")
 

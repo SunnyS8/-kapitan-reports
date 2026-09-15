@@ -124,6 +124,27 @@ def _map_columns(df: pd.DataFrame, target_map: dict) -> dict[str, str]:
     return col_map
 
 
+def _filter_by_date(df: pd.DataFrame, date_from: Optional[str] = None, date_to: Optional[str] = None) -> pd.DataFrame:
+    """Фильтрует DataFrame по колонке 'date'. date_from/date_to в формате YYYY-MM-DD."""
+    if "date" not in df.columns:
+        return df
+    if date_from:
+        try:
+            d_from = pd.to_datetime(date_from, errors="coerce")
+            if pd.notna(d_from):
+                df = df[df["date"] >= d_from]
+        except Exception:
+            pass
+    if date_to:
+        try:
+            d_to = pd.to_datetime(date_to, errors="coerce") + pd.Timedelta(days=1)
+            if pd.notna(d_to):
+                df = df[df["date"] < d_to]
+        except Exception:
+            pass
+    return df
+
+
 def _smart_read(filepath: Path) -> pd.DataFrame:
     """Читает Excel с автопоиском заголовков."""
     try:

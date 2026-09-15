@@ -1,11 +1,12 @@
 """Отчёт: Неоплаченные счета (дебиторка)."""
 import pandas as pd
+from typing import Optional
 from pathlib import Path
 from datetime import datetime
 
 
-def generate_debt(filepaths: list[Path]) -> dict:
-    from app.services.excel_parser import read_invoice_excel
+def generate_debt(filepaths: list[Path], date_from: Optional[str] = None, date_to: Optional[str] = None) -> dict:
+    from app.services.excel_parser import read_invoice_excel, _filter_by_date
 
     frames = []
     debug_all = []
@@ -22,6 +23,7 @@ def generate_debt(filepaths: list[Path]) -> dict:
         return {"summary": {"error": "Не удалось распарсить файлы", "debug": debug_all}, "data": [], "chart": {}}
 
     df = pd.concat(frames, ignore_index=True)
+    df = _filter_by_date(df, date_from, date_to)
     now = datetime.now()
 
     if "date" in df.columns and "overdue_days" not in df.columns:

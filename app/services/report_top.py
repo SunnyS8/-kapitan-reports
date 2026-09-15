@@ -1,9 +1,10 @@
 """Отчёты: Топ продаж по номенклатуре (3.1) и Топ клиенты в разрезе номенклатуры (3.2)."""
 import pandas as pd
+from typing import Optional
 from pathlib import Path
 
 from app.config import INTERNAL_CLIENT_TAG
-from app.services.excel_parser import compute_date_period
+from app.services.excel_parser import compute_date_period, _filter_by_date
 from app.services.internal_clients import is_internal_client
 
 TOP_N = 50
@@ -27,6 +28,7 @@ def _load_sales(filepaths: list[Path]) -> tuple[pd.DataFrame, list]:
         raise ValueError("Не удалось распарсить файлы продаж")
 
     df = pd.concat(frames, ignore_index=True)
+    df = _filter_by_date(df, date_from, date_to)
     return df, debug_all
 
 
@@ -37,7 +39,7 @@ def _round(v) -> float:
         return 0.0
 
 
-def generate_top_products(filepaths: list[Path]) -> dict:
+def generate_top_products(filepaths: list[Path], date_from: Optional[str] = None, date_to: Optional[str] = None) -> dict:
     """3.1 Топ продаж по номенклатуре: Номенклатура | Количество | Сумма."""
     df, debug_all = _load_sales(filepaths)
 
@@ -98,7 +100,7 @@ def generate_top_products(filepaths: list[Path]) -> dict:
     return {"summary": summary, "data": data, "chart": chart}
 
 
-def generate_top_clients(filepaths: list[Path]) -> dict:
+def generate_top_clients(filepaths: list[Path], date_from: Optional[str] = None, date_to: Optional[str] = None) -> dict:
     """3.2 Топ клиенты в разрезе номенклатуры: Клиент | Номенклатура | Шт/кв.м | Сумма.
 
     Внутренние контрагенты (для НДС) выводятся отдельной строкой с пометкой

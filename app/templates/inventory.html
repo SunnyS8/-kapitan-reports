@@ -65,7 +65,7 @@ async function generateReport() {
     const res = await fetch('/api/generate/inventory', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ files: names })
+        body: JSON.stringify({files: names, ...getDateRange()})
     });
     if (!res.ok) { let m='Ошибка'; try { const j=await res.json(); m=j.detail||m; } catch(e){} alert(m); return; }
     const result = await res.json();

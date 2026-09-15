@@ -71,10 +71,28 @@
             <div class="breadcrumb">Kapitan Reports <span>/</span> Отчёты</div>
             <div class="topbar-status"><span class="status-dot"></span> Данные готовы к анализу</div>
         </div>
+        <div class="date-range-picker">
+            <label>С:</label>
+            <input type="date" id="dateFrom" />
+            <label>По:</label>
+            <input type="date" id="dateTo" />
+            <button type="button" class="btn btn-sm" onclick="clearDateRange()">Очистить</button>
+        </div>
         {% block content %}{% endblock %}
     </main>
 
-    <script src="/static/inbox.js"></script>
-    {% block scripts %}{% endblock %}
+<script src="/static/inbox.js"></script>
+<script>
+function getDateRange() {
+    const from = document.getElementById('dateFrom').value;
+    const to = document.getElementById('dateTo').value;
+    return { date_from: from || null, date_to: to || null };
+}
+function clearDateRange() {
+    document.getElementById('dateFrom').value = '';
+    document.getElementById('dateTo').value = '';
+}
+</script>
+{% block scripts %}{% endblock %}
 </body>
 </html>

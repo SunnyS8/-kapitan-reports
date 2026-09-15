@@ -1,13 +1,14 @@
 """Отчёт: План vs Факт."""
 import pandas as pd
+from typing import Optional
 from pathlib import Path
 
 from app.services.internal_clients import is_internal_client
 from app.config import INTERNAL_CLIENT_TAG
 
 
-def generate_forecast(filepaths: list[Path]) -> dict:
-    from app.services.excel_parser import read_plan_excel, read_sales_excel
+def generate_forecast(filepaths: list[Path], date_from: Optional[str] = None, date_to: Optional[str] = None) -> dict:
+    from app.services.excel_parser import read_plan_excel, read_sales_excel, _filter_by_date
 
     plan_df = None
     fact_df = None

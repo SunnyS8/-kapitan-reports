@@ -10,6 +10,7 @@
 """
 import math
 import pandas as pd
+from typing import Optional
 from pathlib import Path
 from datetime import datetime
 
@@ -68,9 +69,9 @@ def _period_start_sort(period: str) -> tuple:
         return (9999, 12, 31)
 
 
-def generate_stock_dynamics(filepaths: list[Path]) -> dict:
+def generate_stock_dynamics(filepaths: list[Path], date_from: Optional[str] = None, date_to: Optional[str] = None) -> dict:
     """Динамика движения по складам: сводка по складам, по периодам, детали."""
-    from app.services.excel_parser import read_stock_excel
+    from app.services.excel_parser import read_stock_excel, _filter_by_date
 
     file_frames: list[tuple[pd.DataFrame, dict]] = []
     debug_all = []
@@ -115,6 +116,7 @@ def generate_stock_dynamics(filepaths: list[Path]) -> dict:
         return {"summary": {"error": "Не удалось распарсить файлы", "debug": debug_all}, "data": [], "chart": {}}
 
     df = pd.concat([f for f, _ in picked_frames], ignore_index=True)
+    df = _filter_by_date(df, date_from, date_to)
 
     for col in ("start_balance", "end_balance", "income", "outcome", "reserve", "end_balance_m2"):
         if col in df.columns:

@@ -92,7 +92,7 @@ let chartInst = null;
 async function generateReport() {
     const names = selectedFiles();
     if (!names.length) { alert('Выберите хотя бы один файл'); return; }
-    const res = await fetch('/api/generate/dynamics', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({files: names}) });
+    const res = await fetch('/api/generate/dynamics', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({files: names, ...getDateRange()}) });
     if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         alert('Ошибка: ' + (err.detail || res.status));

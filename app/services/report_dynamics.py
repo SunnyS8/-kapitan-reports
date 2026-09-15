@@ -1,5 +1,6 @@
 """Отчёт: Динамика продаж (помесячно, без внутренних контрагентов)."""
 import pandas as pd
+from typing import Optional
 from pathlib import Path
 
 from app.services.internal_clients import is_internal_client
@@ -20,8 +21,8 @@ def _month_label(period):
         return str(period)
 
 
-def generate_dynamics(filepaths: list[Path]) -> dict:
-    from app.services.excel_parser import read_sales_excel
+def generate_dynamics(filepaths: list[Path], date_from: Optional[str] = None, date_to: Optional[str] = None) -> dict:
+    from app.services.excel_parser import read_sales_excel, _filter_by_date
 
     frames = []
     internal_frames = []
@@ -46,6 +47,7 @@ def generate_dynamics(filepaths: list[Path]) -> dict:
         return {"summary": {"error": "Не удалось распарсить файлы продаж", "debug": debug_all}, "data": [], "chart": {}, "categories": [], "top_products": []}
 
     df = pd.concat(frames, ignore_index=True)
+    df = _filter_by_date(df, date_from, date_to)
 
     if "date" not in df.columns:
         return {"summary": {"error": "В выгрузках нет колонки с датами — нельзя построить помесячную динамику.", "debug": debug_all}, "data": [], "chart": {}, "categories": [], "top_products": []}

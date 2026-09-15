@@ -1,6 +1,7 @@
 """Отчёт: Незавершённые ЭДО (2.2)."""
 import math
 import pandas as pd
+from typing import Optional
 from pathlib import Path
 from datetime import datetime
 
@@ -15,10 +16,10 @@ def _num(v, default: float = 0.0) -> float:
         return default
 
 
-def generate_edo(filepaths: list[Path]) -> dict:
+def generate_edo(filepaths: list[Path], date_from: Optional[str] = None, date_to: Optional[str] = None) -> dict:
     """Реестр незавершённых ЭДО: Клиент | Адрес | Номер накладной | Сумма |
     Состояние | Остановлен."""
-    from app.services.excel_parser import read_edo_excel
+    from app.services.excel_parser import read_edo_excel, _filter_by_date
 
     frames = []
     debug_all = []
@@ -35,6 +36,7 @@ def generate_edo(filepaths: list[Path]) -> dict:
         return {"summary": {"error": "Не удалось распарсить файлы", "debug": debug_all}, "data": [], "chart": {}}
 
     df = pd.concat(frames, ignore_index=True)
+    df = _filter_by_date(df, date_from, date_to)
 
     if "client" not in df.columns:
         return {"summary": {"error": "Колонка 'Клиент' не найдена", "debug": debug_all}, "data": [], "chart": {}}
