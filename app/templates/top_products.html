@@ -36,7 +36,7 @@
             <table>
                 <thead>
                     <tr>
-                        <th>Номенклатура</th>
+                        <th>Номенклатура</th><th>Дата</th>
                         <th>Менеджер</th>
                         <th>Территория</th>
                         <th>Количество</th>
@@ -78,6 +78,7 @@ async function generateReport() {
         <tr>
             <td><strong>${d['Номенклатура'] || ''}</strong></td>
             <td>${d.manager || ''}</td>
+            <td>${d.date || ''}</td>
             <td>${d.territory || ''}</td>
             <td>${d['Количество'] || 0}</td>
             <td>${d['Количество м2'] || 0}</td>

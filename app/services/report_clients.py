@@ -49,4 +49,6 @@ def generate_clients(filepaths: list[Path], date_from: Optional[str] = None, dat
         "debug": debug_all,
     }
 
+    _add_date_to_data(data, df)
+
     return {"summary": summary, "data": data, "chart": {}}

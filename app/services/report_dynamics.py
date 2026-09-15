@@ -5,6 +5,7 @@ from pathlib import Path
 
 from app.services.internal_clients import is_internal_client
 from app.config import INTERNAL_CLIENT_TAG
+from app.services.excel_parser import _add_date_to_data
 
 _MONTHS_RU = [
     "январь", "февраль", "март", "апрель", "май", "июнь",
@@ -232,6 +233,8 @@ def generate_dynamics(filepaths: list[Path], date_from: Optional[str] = None, da
         "values": [d["revenue"] for d in data],
         "mom": [d["mom_pct"] if d["mom_pct"] is not None else 0 for d in data],
     }
+
+    _add_date_to_data(data, df)
 
     return {"summary": summary, "data": data, "chart": chart,
             "chart_warehouse": chart_warehouse,

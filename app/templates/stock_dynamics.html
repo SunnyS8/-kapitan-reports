@@ -37,7 +37,7 @@
             <table>
                 <thead>
                     <tr>
-                        <th>Склад</th>
+                        <th>Склад</th><th>Дата</th>
                         <th>Позиций</th>
                         <th>Начальный приход</th>
                         <th>Приход</th>
@@ -54,7 +54,7 @@
             <table>
                 <thead>
                     <tr>
-                        <th>Период</th>
+                        <th>Период</th><th>Дата</th>
                         <th>Склад</th>
                         <th>Менеджер</th>
                         <th>Артикул</th>
@@ -116,6 +116,7 @@ async function generateReport() {
 
     document.getElementById('tableBody').innerHTML = result.data.map(d => `
         <tr>
+            <td>${d.date || ''}</td>
             <td>${esc(d['Период'] || '')}</td>
             <td>${esc(d['Город склада'] || '')}</td>
             <td>${esc(d['Менеджер'] || '')}</td>

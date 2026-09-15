@@ -6,6 +6,7 @@ from pathlib import Path
 from app.config import INTERNAL_CLIENT_TAG
 from app.services.excel_parser import compute_date_period, _filter_by_date
 from app.services.internal_clients import is_internal_client
+from app.services.excel_parser import _add_date_to_data
 
 TOP_N = 50
 
@@ -96,6 +97,8 @@ def generate_top_products(filepaths: list[Path], date_from: Optional[str] = None
         "labels": [d["Номенклатура"][:25] for d in data[:15]],
         "values": [d["Сумма"] for d in data[:15]],
     }
+
+    _add_date_to_data(data, df)
 
     return {"summary": summary, "data": data, "chart": chart}
 

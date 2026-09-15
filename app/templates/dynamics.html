@@ -32,7 +32,7 @@
             <table>
                 <thead>
                     <tr>
-                        <th>Месяц</th>
+                        <th>Месяц</th><th>Дата</th>
                         <th>Менеджер</th>
                         <th>Территория</th>
                         <th>Клиентов</th>
@@ -54,7 +54,7 @@
                 <table>
                     <thead>
                         <tr>
-                            <th>Месяц</th>
+                            <th>Месяц</th><th>Дата</th>
                             <th>Сумма</th>
                             <th>Пометка</th>
                         </tr>
@@ -73,7 +73,7 @@
                 <table>
                     <thead>
                         <tr>
-                            <th>Месяц</th>
+                            <th>Месяц</th><th>Дата</th>
                             <th id="whHeaders"></th>
                         </tr>
                     </thead>
@@ -220,7 +220,7 @@ async function generateReport() {
         const catLabels = [...new Set(cats.flatMap(c => c.periods || []))].sort();
         let catHtml = '<h2 style="margin-bottom:16px;">Выручка по категориям помесячно</h2>';
         catHtml += '<div class="chart-container" style="margin-bottom:16px;"><canvas id="catChart"></canvas></div>';
-        catHtml += '<div class="table-wrap"><table><thead><tr><th>Категория</th>' + catLabels.map(l => `<th>${esc(l)}</th>`).join('') + '</tr></thead><tbody>';
+        catHtml += '<div class="table-wrap"><table><thead><tr><th>Категория</th><th>Дата</th>' + catLabels.map(l => `<th>${esc(l)}</th>`).join('') + '</tr></thead><tbody>';
         cats.forEach(c => {
             catHtml += `<tr><td><strong>${esc(c.category)}</strong></td>` + c.values.map(v => `<td>${fmt(v)} ₽</td>`).join('') + '</tr>';
         });
@@ -257,10 +257,10 @@ async function generateReport() {
             if (!topGrouped[d.month]) topGrouped[d.month] = [];
             topGrouped[d.month].push(d);
         });
-        let tpHtml = '<h2 style="margin-bottom:16px;">Топ-5 товаров по месяцам</h2><div class="table-wrap"><table><thead><tr><th>Месяц</th><th>#</th><th>Товар</th><th>Выручка</th></tr></thead><tbody>';
+        let tpHtml = '<h2 style="margin-bottom:16px;">Топ-5 товаров по месяцам</h2><div class="table-wrap"><table><thead><tr><th>Месяц</th><th>Дата</th><th>#</th><th>Товар</th><th>Выручка</th></tr></thead><tbody>';
         tpPeriods.forEach(p => {
             (topGrouped[p] || []).forEach(d => {
-                tpHtml += `<tr><td><strong>${esc(d.month)}</strong></td><td>${d.rank}</td><td>${esc(d.product)}</td><td>${fmt(d.revenue)} ₽</td></tr>`;
+            tpHtml += `<tr><td><strong>${esc(d.month)}</strong></td><td>${d.rank}</td><td>${d.date || ''}</td><td>${esc(d.product)}</td><td>${fmt(d.revenue)} ₽</td></tr>`;
             });
         });
         tpHtml += '</tbody></table></div>';

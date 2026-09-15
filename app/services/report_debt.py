@@ -62,4 +62,6 @@ def generate_debt(filepaths: list[Path], date_from: Optional[str] = None, date_t
             categories[">180"] += d["sum"]
 
     chart = {"labels": list(categories.keys()), "values": [round(v, 2) for v in categories.values()]}
+    _add_date_to_data(data, df)
+
     return {"summary": summary, "data": data, "chart": chart}

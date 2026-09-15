@@ -33,7 +33,7 @@
             <table>
                 <thead>
                     <tr>
-                        <th>Товар</th>
+                        <th>Товар</th><th>Дата</th>
                         <th>Менеджер</th>
                         <th>Территория</th>
                         <th>Характеристика</th>
@@ -81,6 +81,7 @@ async function generateReport() {
         <tr>
             <td><strong>${d.product || ''}</strong></td>
             <td>${d.manager || ''}</td>
+            <td>${d.date || ''}</td>
             <td>${d.territory || ''}</td>
             <td>${d.characteristic || ''}</td>
             <td>${d.warehouse || ''}</td>

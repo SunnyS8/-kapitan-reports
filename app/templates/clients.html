@@ -33,7 +33,7 @@
             <table>
                 <thead>
                     <tr>
-                        <th>Менеджер</th>
+                        <th>Менеджер</th><th>Дата</th>
                         <th>Клиент</th>
                         <th>Город</th>
                         <th>Адрес</th>
@@ -68,6 +68,7 @@ async function generateReport() {
 
     document.getElementById('tableBody').innerHTML = result.data.map(d => `
         <tr>
+<td>${d.date || ''}</td>
             <td>${d['Менеджер'] || ''}</td>
             <td><strong>${d['Клиент'] || ''}</strong></td>
             <td>${d['Город'] || ''}</td>

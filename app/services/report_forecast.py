@@ -5,6 +5,7 @@ from pathlib import Path
 
 from app.services.internal_clients import is_internal_client
 from app.config import INTERNAL_CLIENT_TAG
+from app.services.excel_parser import _add_date_to_data
 
 
 def generate_forecast(filepaths: list[Path], date_from: Optional[str] = None, date_to: Optional[str] = None) -> dict:
@@ -94,6 +95,8 @@ def generate_forecast(filepaths: list[Path], date_from: Optional[str] = None, da
 
     summary = {"total_plan": round(total_plan, 2), "total_fact": round(total_fact, 2), "total_pct": round(total_pct, 1), "items_count": len(data), "internal_total": round(float(sum(r["Факт"] for r in internal_rows)), 2), "internal_count": len(internal_rows), "debug": debug_all}
     chart = {"labels": [d["name"][:20] for d in data[:10]], "plan": [d["plan"] for d in data[:10]], "fact": [d["fact"] for d in data[:10]]}
+
+    _add_date_to_data(data, df)
 
     return {"summary": summary, "data": data, "chart": chart,
             "internal": internal_rows if internal_rows else []}

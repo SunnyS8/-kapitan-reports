@@ -6,6 +6,7 @@ from typing import Optional
 from app.services.excel_parser import compute_date_period, _filter_by_date
 from app.services.internal_clients import is_internal_client
 from app.config import INTERNAL_CLIENT_TAG
+from app.services.excel_parser import _add_date_to_data
 
 
 def generate_sales_clients(filepaths: list[Path], date_from: Optional[str] = None, date_to: Optional[str] = None) -> dict:
@@ -119,5 +120,7 @@ def generate_sales_clients(filepaths: list[Path], date_from: Optional[str] = Non
         "labels": [d["client"][:20] for d in data[:10]],
         "values": [d["revenue"] for d in data[:10]],
     }
+
+    _add_date_to_data(data, df)
 
     return {"summary": summary, "data": data, "chart": chart, "internal": internal_rows}

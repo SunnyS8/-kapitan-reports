@@ -36,7 +36,7 @@
             <table>
                 <thead>
                     <tr>
-                        <th>Менеджер</th>
+                        <th>Менеджер</th><th>Дата</th>
                         <th>Клиент</th>
                         <th>Территория</th>
                         <th>Организация</th>
@@ -85,6 +85,7 @@ async function generateReport() {
             <td>${d['Менеджер'] || ''}</td>
             <td><strong>${d['Клиент'] || ''}</strong></td>
             <td>${d.territory || ''}</td>
+            <td>${d.date || ''}</td>
             <td>${d['Организация'] || ''}</td>
             <td>${d['Отсрочка, дн'] || 0}</td>
             <td><strong>${fmt(d['Общий долг'])}</strong></td>

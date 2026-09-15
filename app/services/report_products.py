@@ -6,6 +6,7 @@ from pathlib import Path
 from app.services.excel_parser import compute_date_period, _filter_by_date
 from app.services.internal_clients import is_internal_client
 from app.config import INTERNAL_CLIENT_TAG
+from app.services.excel_parser import _add_date_to_data
 
 
 def generate_sales_products(filepaths: list[Path], date_from: Optional[str] = None, date_to: Optional[str] = None) -> dict:
@@ -122,5 +123,7 @@ def generate_sales_products(filepaths: list[Path], date_from: Optional[str] = No
         "values": [d["revenue"] for d in data[:15]],
         "colors": ["#16a34a" if d["category"] == "A" else "#eab308" if d["category"] == "B" else "#dc2626" for d in data[:15]],
     }
+
+    _add_date_to_data(data, df)
 
     return {"summary": summary, "data": data, "chart": chart, "internal": internal_rows}

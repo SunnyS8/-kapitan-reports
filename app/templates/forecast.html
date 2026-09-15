@@ -32,7 +32,7 @@
             <table>
                 <thead>
                     <tr>
-                        <th>Клиент</th>
+                        <th>Клиент</th><th>Дата</th>
                         <th>Менеджер</th>
                         <th>Территория</th>
                         <th>План</th>
@@ -51,7 +51,7 @@
                 <table>
                     <thead>
                         <tr>
-                            <th>Клиент</th>
+                            <th>Клиент</th><th>Дата</th>
                             <th>Факт</th>
                             <th>Пометка</th>
                         </tr>
@@ -89,7 +89,8 @@ async function generateReport() {
             : d.status === 'warn' ? '<span class="badge badge-b">В зоне риска</span>'
             : d.status === 'no_plan' ? '<span class="badge badge-ok">Нет плана</span>'
             : '<span class="badge badge-c">Не выполнено</span>';
-        return `<tr><td><strong>${d.name}</strong></td><td>${d.manager || ''}</td><td>${d.territory || ''}</td><td>${fmt(d.plan)} ₽</td><td>${fmt(d.fact)} ₽</td><td>${d.pct}%</td><td>${statusBadge}</td></tr>`;
+        return `<tr><td><strong>${d.name}</strong></td>
+        <td>${d.date || ''}</td><td>${d.manager || ''}</td><td>${d.territory || ''}</td><td>${fmt(d.plan)} ₽</td><td>${fmt(d.fact)} ₽</td><td>${d.pct}%</td><td>${statusBadge}</td></tr>`;
     }).join('');
 
     const internal = result.internal || [];

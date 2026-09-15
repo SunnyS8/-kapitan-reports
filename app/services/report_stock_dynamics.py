@@ -279,6 +279,8 @@ def generate_stock_dynamics(filepaths: list[Path], date_from: Optional[str] = No
         "debug": debug_all,
     }
 
+    _add_date_to_data(data, df)
+
     return {"summary": summary, "warehouses": warehouses, "data": data, "chart": chart}
 
 

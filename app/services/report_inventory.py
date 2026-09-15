@@ -62,4 +62,6 @@ def generate_inventory(filepaths: list[Path], threshold_days: int = 90, date_fro
         "values": [v["end_balance"] for v in warehouse_stats.values()],
     }
 
+    _add_date_to_data(data, df)
+
     return {"summary": summary, "data": data, "chart": chart}

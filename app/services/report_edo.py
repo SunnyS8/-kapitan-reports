@@ -75,4 +75,6 @@ def generate_edo(filepaths: list[Path], date_from: Optional[str] = None, date_to
         "values": [d["Сумма"] for d in data[:10]],
     }
 
+    _add_date_to_data(data, df)
+
     return {"summary": summary, "data": data, "chart": chart}

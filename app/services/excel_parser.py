@@ -322,6 +322,18 @@ def compute_date_period(df: pd.DataFrame) -> dict:
     return out
 
 
+def _add_date_to_data(data, df):
+    """Добавляет столбец date (период) в каждую строку данных."""
+    if not data or "date" not in df.columns:
+        return data
+    dates = pd.to_datetime(df["date"], errors="coerce", dayfirst=True).dropna()
+    if dates.empty:
+        return data
+    date_str = dates.min().strftime("%d.%m.%Y") + " — " + dates.max().strftime("%d.%m.%Y")
+    for row in data:
+        row["date"] = date_str
+    return data
+
 def read_stock_excel(filepath: Path) -> tuple[pd.DataFrame, dict]:
     """Читает остатки по складам, автоматически определяя формат:
     - «Ведомость по товарам на складах» (склад в заголовках секций, forward-fill)

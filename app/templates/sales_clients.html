@@ -37,7 +37,7 @@
             <table>
                 <thead>
                     <tr>
-                        <th>Клиент</th>
+                        <th>Клиент</th><th>Дата</th>
                         <th>Менеджер</th>
                         <th>Территория</th>
                         <th>Выручка</th>
@@ -56,7 +56,7 @@
                 <table>
                     <thead>
                         <tr>
-                            <th>Клиент</th>
+                            <th>Клиент</th><th>Дата</th>
                             <th>Выручка</th>
                             <th>Кол-во продаж</th>
                             <th>Средний чек</th>
@@ -120,6 +120,7 @@ async function generateReport() {
         tbody.innerHTML = result.data.map(d => `
             <tr>
                 <td><strong>${d.client}</strong></td>
+                <td>${d.date || ''}</td>
                 <td>${d.manager || ''}</td>
                 <td>${d.territory || ''}</td>
                 <td>${fmt(d.revenue)} &#8381;</td>

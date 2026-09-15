@@ -115,4 +115,6 @@ def generate_debt_manager(filepaths: list[Path], date_from: Optional[str] = None
         "values": [round(b1, 2), round(b2, 2), round(b3, 2), round(b4, 2)],
     }
 
+    _add_date_to_data(data, df)
+
     return {"summary": summary, "data": data, "chart": chart}
