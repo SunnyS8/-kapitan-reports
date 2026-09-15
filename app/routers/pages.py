@@ -30,8 +30,10 @@ async def inbox_page(request: Request):
 @router.get("/report/{report_type}", response_class=HTMLResponse)
 async def report_page(request: Request, report_type: str):
     title = REPORT_TYPES.get(report_type, "Неизвестный отчёт")
+    date_from = request.query_params.get("date_from", "")
+    date_to = request.query_params.get("date_to", "")
     return templates.TemplateResponse(
         request=request,
         name=f"{report_type}.html",
-        context={"report_type": report_type, "title": title},
+        context={"report_type": report_type, "title": title, "date_from": date_from, "date_to": date_to},
     )

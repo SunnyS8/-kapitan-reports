@@ -71,15 +71,16 @@
             <div class="breadcrumb">Kapitan Reports <span>/</span> Отчёты</div>
             <div class="topbar-status"><span class="status-dot"></span> Данные готовы к анализу</div>
         </div>
-        <div class="date-range-picker">
-            <label>С:</label>
-            <input type="date" id="dateFrom" />
-            <label>По:</label>
-            <input type="date" id="dateTo" />
-            <button type="button" class="btn btn-sm" onclick="clearDateRange()">Очистить</button>
-        </div>
-        {% block content %}{% endblock %}
-    </main>
+<div class="date-range-picker">
+    <label>С:</label>
+    <input type="date" id="dateFrom" />
+    <label>По:</label>
+    <input type="date" id="dateTo" />
+    <span id="dateRangeBadge" class="date-badge"></span>
+    <button type="button" class="btn btn-sm" onclick="clearDateRange()">Очистить</button>
+</div>
+{% block content %}{% endblock %}
+</main>
 
 <script src="/static/inbox.js"></script>
 <script>
@@ -91,7 +92,43 @@ function getDateRange() {
 function clearDateRange() {
     document.getElementById('dateFrom').value = '';
     document.getElementById('dateTo').value = '';
+    updateBadge();
+    updateURL();
 }
+function updateBadge() {
+    const from = document.getElementById('dateFrom').value;
+    const to = document.getElementById('dateTo').value;
+    const badge = document.getElementById('dateRangeBadge');
+    if (from && to) {
+        badge.textContent = from + ' — ' + to;
+        badge.style.display = 'inline-block';
+    } else if (from || to) {
+        badge.textContent = from || to;
+        badge.style.display = 'inline-block';
+    } else {
+        badge.style.display = 'none';
+    }
+}
+function updateURL() {
+    const from = document.getElementById('dateFrom').value;
+    const to = document.getElementById('dateTo').value;
+    const url = new URL(window.location);
+    if (from) url.searchParams.set('date_from', from); else url.searchParams.delete('date_from');
+    if (to) url.searchParams.set('date_to', to); else url.searchParams.delete('date_to');
+    window.history.replaceState({}, '', url);
+}
+const dateFrom = document.getElementById('dateFrom');
+const dateTo = document.getElementById('dateTo');
+dateFrom.addEventListener('change', function() { updateBadge(); updateURL(); });
+dateTo.addEventListener('change', function() { updateBadge(); updateURL(); });
+document.addEventListener('DOMContentLoaded', function() {
+    const url = new URL(window.location);
+    const uf = url.searchParams.get('date_from');
+    const ut = url.searchParams.get('date_to');
+    if (uf) dateFrom.value = uf;
+    if (ut) dateTo.value = ut;
+    updateBadge();
+});
 </script>
 {% block scripts %}{% endblock %}
 </body>

@@ -436,6 +436,16 @@ tr:hover td { background: #f8fafc; }
     border-color: var(--primary);
     outline: none;
 }
+.date-badge {
+    display: none;
+    background: var(--primary-light);
+    color: var(--primary);
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+}
 @media (max-width: 768px) {
     .date-range-picker {
         flex-wrap: wrap;
