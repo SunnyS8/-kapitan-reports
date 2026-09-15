@@ -40,7 +40,7 @@ def generate_sales_clients(filepaths: list[Path], date_from: Optional[str] = Non
     # Внутренние контрагенты (для НДС) — отдельным блоком, в общие результаты не входят.
     df["is_internal"] = df["client"].map(is_internal_client)
     internal_df = df[df["is_internal"]]
-    df = df[~df["is_internal"]].drop(columns=["is_internal"])
+    df = df[~df["is_internal"]].drop(columns=["is_internal"], errors="ignore")
 
     # Дополнительные поля клиента (3.4): берём первое непустое значение по клиенту.
     extra_fields = {}

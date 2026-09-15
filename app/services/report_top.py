@@ -122,7 +122,7 @@ def generate_top_clients(filepaths: list[Path], date_from: Optional[str] = None,
 
     df["is_internal"] = df["client"].map(is_internal_client)
     internal_df = df[df["is_internal"]]
-    df = df[~df["is_internal"]].drop(columns=["is_internal"])
+    df = df[~df["is_internal"]].drop(columns=["is_internal"], errors="ignore")
 
     # Territory and Manager mapping from df for clients
     city_map = {}

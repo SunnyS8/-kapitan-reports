@@ -34,7 +34,7 @@ def generate_dynamics(filepaths: list[Path], date_from: Optional[str] = None, da
             if "client" in df.columns:
                 df["is_internal"] = df["client"].map(is_internal_client)
                 internal_df = df[df["is_internal"]]
-                df = df[~df["is_internal"]].drop(columns=["is_internal"])
+                df = df[~df["is_internal"]].drop(columns=["is_internal"], errors="ignore")
             frames.append(df)
             if internal_df is not None and not internal_df.empty:
                 internal_frames.append(internal_df)

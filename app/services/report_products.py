@@ -42,7 +42,7 @@ def generate_sales_products(filepaths: list[Path], date_from: Optional[str] = No
     if "client" in df.columns:
         df["is_internal"] = df["client"].map(is_internal_client)
         internal_df = df[df["is_internal"]]
-        df = df[~df["is_internal"]].drop(columns=["is_internal"])
+        df = df[~df["is_internal"]].drop(columns=["is_internal"], errors="ignore")
 
         if not internal_df.empty:
             col = "product" if "product" in internal_df.columns else None

@@ -49,7 +49,7 @@ def generate_forecast(filepaths: list[Path], date_from: Optional[str] = None, da
     if "client" in fact_df.columns and "sum" in fact_df.columns:
         fact_df["is_internal"] = fact_df["client"].map(is_internal_client)
         internal_df = fact_df[fact_df["is_internal"]]
-        fact_df = fact_df[~fact_df["is_internal"]].drop(columns=["is_internal"])
+        fact_df = fact_df[~fact_df["is_internal"]].drop(columns=["is_internal"], errors="ignore")
         if not internal_df.empty:
             ig = internal_df.groupby("client", dropna=False)["sum"].sum().reset_index()
             ig = ig.sort_values("sum", ascending=False)
