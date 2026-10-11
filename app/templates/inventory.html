@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% set active = "inventory" %}
+
+{% block title %}Остатки на складах — Kapitan Reports{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Остатки на складах</h1>
+    <p>Текущие остатки по складам, сумма, просроченные позиции</p>
+</div>
+
+<div class="card">
+    <h2 style="margin-bottom:16px;">Выбор выгрузок из 1С</h2>
+    <p style="font-size:13px;color:#666;margin:0 0 12px;">Выберите файлы остатков из папки <strong>inbox</strong> проекта Kapitan Reports. Справочники хранятся в подпапке <strong>inbox/Справочники</strong>.</p>
+    <div id="inboxList" style="max-height:240px;overflow:auto;border:1px solid var(--border,#e2e8f0);border-radius:8px;padding:8px;"></div>
+    <div style="margin-top:12px;font-size:13px;">
+        <label><input type="checkbox" id="selectAll" onchange="toggleAll(this.checked)"> Выбрать все</label>
+    </div>
+    <div style="margin-top:16px;">
+        <button type="button" class="btn btn-primary" onclick="generateReport()"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7V5Z"/></svg> Сформировать отчёт</button>
+    </div>
+</div>
+
+<div id="result" style="display:none;">
+    <div class="summary-row" id="summary"></div>
+    {% include "note.html" %}
+    <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <h2>Детализация по складам</h2>
+            <a id="downloadLink" class="btn btn-success" href="#"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg> Скачать Excel</a>
+        </div>
+        <div class="chart-container" style="margin-bottom:20px;">
+            <canvas id="chart"></canvas>
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Склад</th><th>Дата</th>
+                        <th>Менеджер</th>
+                        <th>Территория</th>
+                        <th>Товар</th>
+                        <th>Характеристика</th>
+                        <th>Нач.остаток</th>
+                        <th>Приход</th>
+                        <th>Расход</th>
+                        <th>Кон.остаток</th>
+                        <th>Резерв</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let chartInst = null;
+
+async function generateReport() {
+    const names = selectedFiles();
+    if (!names.length) { alert('Выберите хотя бы один файл'); return; }
+    const res = await fetch('/api/generate/inventory', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({files: names, ...getDateRange()})
+    });
+    if (!res.ok) { let m='Ошибка'; try { const j=await res.json(); m=j.detail||m; } catch(e){} alert(m); return; }
+    const result = await res.json();
+
+    const s = result.summary;
+    let whHtml = '';
+    if (s.warehouses) {
+        for (const [wh, v] of Object.entries(s.warehouses)) {
+            whHtml += `<div class="summary-card"><div class="label">${wh}</div><div class="value blue">${fmt(v.end_balance)}</div></div>`;
+        }
+    }
+    document.getElementById('summary').innerHTML = `
+        <div class="summary-card"><div class="label">Всего позиций</div><div class="value">${s.total_items}</div></div>
+        <div class="summary-card"><div class="label">Кон.остаток</div><div class="value blue">${fmt(s.total_end_balance)}</div></div>
+        ${whHtml}
+    `;
+
+    document.getElementById('tableBody').innerHTML = result.data.map(d => `
+        <tr>
+            <td>${d.warehouse || ''}</td>
+            <td>${d.date || ''}</td>
+            <td>${d.manager || ''}</td>
+            <td>${d.territory || ''}</td>
+            <td><strong>${d.product || ''}</strong></td>
+            <td>${d.characteristic || ''}</td>
+            <td>${d.start_balance || 0}</td>
+            <td>${d.income || 0}</td>
+            <td>${d.outcome || 0}</td>
+            <td>${d.end_balance || 0}</td>
+            <td>${d.reserve || 0}</td>
+        </tr>
+    `).join('');
+
+    if (chartInst) chartInst.destroy();
+    if (result.chart.labels && result.chart.labels.length) {
+        chartInst = new Chart(document.getElementById('chart'), {
+            type: 'bar',
+            data: { labels: result.chart.labels, datasets: [{ label: 'Остаток', data: result.chart.values, backgroundColor: '#3b82f6' }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+        });
+    }
+
+    if (result.filename) document.getElementById('downloadLink').href = '/api/download/' + result.filename;
+    document.getElementById('result').style.display = 'block';
+    showNoteBlock();
+}
+
+function fmt(n) { return new Intl.NumberFormat('ru-RU').format(n); }
+
+loadInbox();
+</script>
+{% endblock %}

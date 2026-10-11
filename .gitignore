@@ -1,0 +1,23 @@
+__pycache__/
+*.pyc
+uploads/*
+!uploads/.gitkeep
+reports/*
+!reports/.gitkeep
+inbox/*
+!inbox/.gitkeep
+# Выгрузки из 1С содержат названия клиентов, суммы и артикулы.
+# Такие файлы нельзя хранить в публичном репозитории — игнорируем
+# в любой папке проекта, а не только в inbox.
+*.xlsx
+*.xls
+*.csv
+.env
+*.log
+. DS_Store
+Thumbs.db
+~$*
+~$*.*
+
+.railway-data/
+.railway-data-test/

@@ -1,0 +1,108 @@
+from pathlib import Path
+import os
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+_default_data_path = "/app/data" if os.environ.get("RAILWAY_ENVIRONMENT") else str(BASE_DIR)
+DATA_DIR = Path(os.environ.get("DATA_DIR", _default_data_path))
+UPLOADS_DIR = DATA_DIR / "uploads"
+REPORTS_DIR = DATA_DIR / "reports"
+
+UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+
+# --- База знаний ---
+# Каталог, куда складываются готовые отчёты. Задаётся переменной окружения
+# BASE_KNOWLEDGE и НЕ должен указывать на конкретный путь в коде:
+#   - локально: любая папка, например D:/Отчёты
+#   - на Railway: путь на Persistent Volume (например /app/data)
+# Если переменная не задана, используется DATA_DIR.
+_knowledge_path = os.environ.get("BASE_KNOWLEDGE", str(DATA_DIR))
+BASE_KNOWLEDGE = Path(_knowledge_path)
+KNOWLEDGE_ANALYTICS = BASE_KNOWLEDGE / "06 - Аналитика и отчёты"
+KNOWLEDGE_MONTHLY = BASE_KNOWLEDGE / "07 - Ежемесячные отчёты"
+
+for _d in (BASE_KNOWLEDGE, KNOWLEDGE_ANALYTICS, KNOWLEDGE_MONTHLY):
+    _d.mkdir(parents=True, exist_ok=True)
+
+# Папка входных выгрузок из 1С + справочники.
+# На Railway данные хранятся на Persistent Volume (/app/data).
+# Также проверяем корень репозитория, чтобы справочники из git были доступны.
+_repo_inbox = BASE_DIR / "inbox"
+INBOX_DIR = DATA_DIR / "inbox" if (DATA_DIR / "inbox").exists() else _repo_inbox
+REF_DIR = INBOX_DIR / "Справочники"
+if not REF_DIR.exists() and (_repo_inbox / "Справочники").exists():
+    REF_DIR = _repo_inbox / "Справочники"
+INBOX_DIR = REF_DIR.parent if REF_DIR.exists() else INBOX_DIR
+for _d in (INBOX_DIR, REF_DIR):
+    _d.mkdir(parents=True, exist_ok=True)
+
+# Куда писать результат по каждому типу отчёта (подпапка в 06 - Аналитика и отчёты)
+REPORT_OUT_DIRS = {
+    "sales_clients": "ABC анализ",
+    "sales_products": "ABC анализ",
+    "top_clients": "ABC анализ",
+    "top_products": "ABC анализ",
+    "sales_detailed": "ABC анализ",
+    "sales_client_detail": "ABC анализ",
+    "debt": "Дебиторка",
+    "debt_manager": "Дебиторка",
+    "nelikvid": "Неликвиды",
+    "inventory": "Остатки по складам",
+    "stock_dynamics": "Остатки по складам",
+    "dynamics": "Динамика продаж",
+    "forecast": "Динамика продаж",
+    "clients": "Реестр клиентов",
+    "edo": "ЭДО",
+    "pvh": "Плёнка ПВХ",
+}
+
+# Отчёты, которые дополнительно пишутся в 07 - Ежемесячные отчёты
+MONTHLY_REPORTS = {
+    "sales_clients",
+    "sales_products",
+    "top_clients",
+    "top_products",
+    "sales_detailed",
+    "sales_client_detail",
+    "debt",
+    "debt_manager",
+}
+
+REPORT_TYPES = {
+    "sales_clients": "Продажи по клиентам",
+    "sales_products": "Продажи по товарам",
+    "inventory": "Остатки на складах",
+    "dynamics": "Динамика продаж",
+    "forecast": "План vs Факт",
+    "debt": "Неоплаченные счета",
+    "debt_manager": "Задолженность клиента",
+    "stock_dynamics": "Динамика по складу",
+    "edo": "Незавершённые ЭДО",
+    "clients": "Реестр клиентов",
+    "nelikvid": "Неликвиды",
+    "top_clients": "Топ клиенты в разрезе номенклатуры",
+    "top_products": "Топ продаж по номенклатуре",
+}
+
+# Внутренние контрагенты (используются для НДС), не входят в общие продажи.
+# Выводятся отдельной строкой с пометкой, в общих результатах не учитываются.
+#
+# ВАЖНО: список задаётся переменной окружения INTERNAL_CLIENTS — это данные
+# конкретной компании, их нельзя хранить в коде. Разделитель — точка с запятой.
+# Пример: INTERNAL_CLIENTS="ООО Ромашка;ООО Вектор"
+# Если переменная не задана, считается, что внутренних контрагентов нет.
+_internal_raw = os.environ.get("INTERNAL_CLIENTS", "")
+INTERNAL_CLIENTS = {
+    part.strip().lower()
+    for part in _internal_raw.replace("\n", ";").split(";")
+    if part.strip()
+}
+
+# Подпись, которой помечаются внутренние контрагенты в отчётах
+INTERNAL_CLIENT_TAG = os.environ.get("INTERNAL_CLIENT_TAG", "ВНУТР (НДС)")
+
+SCHEDULE_DEFAULTS = {
+    "hour": 8,
+    "minute": 0,
+    "day_of_week": "mon-fri",
+}

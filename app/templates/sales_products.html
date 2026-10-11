@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% set active = "sales_products" %}
+
+{% block title %}Продажи по товарам — Kapitan Reports{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Продажи по товарам</h1>
+    <p>ABC-анализ, топ товары, доля в портфеле</p>
+</div>
+
+<div class="card">
+    <h2 style="margin-bottom:8px;">Выбор выгрузок из 1С</h2>
+    <p class="muted" style="margin-bottom:12px;">Выберите исходники, загруженные в разделе «Выгрузка из 1С».</p>
+    <div id="inboxList" class="source-picker"></div>
+    <div class="inbox-toolbar"><label><input type="checkbox" id="selectAll" onchange="toggleAll(this.checked)"> Выбрать все</label></div>
+    <button type="button" class="btn btn-primary" style="margin-top:16px;" onclick="generateReport()"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7V5Z"/></svg> Сформировать отчёт</button>
+</div>
+
+<div id="result" style="display:none;">
+    <div class="summary-row" id="summary"></div>
+    {% include "note.html" %}
+    <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <h2>ABC-анализ</h2>
+            <a id="downloadLink" class="btn btn-success" href="#"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg> Скачать Excel</a>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
+            <div class="chart-container"><canvas id="chartAbc"></canvas></div>
+            <div class="chart-container"><canvas id="chartPie"></canvas></div>
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Товар</th><th>Дата</th>
+                        <th>Менеджер</th>
+                        <th>Территория</th>
+                        <th>Категория</th>
+                        <th>Выручка</th>
+                        <th>Доля, %</th>
+                        <th>Накопит., %</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
+        <div id="internalBlock" style="display:none;margin-top:24px;">
+            <h2>Внутренние контрагенты (НДС)</h2>
+            <p style="font-size:13px;color:#666;margin:0 0 12px;">Выводятся отдельно и не входят в общие результаты.</p>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Номенклатура</th><th>Дата</th>
+                            <th>Сумма</th>
+                            <th>Пометка</th>
+                        </tr>
+                    </thead>
+                    <tbody id="internalBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let chartAbcInst = null, chartPieInst = null;
+
+async function generateReport() {
+    const names = selectedFiles();
+    if (!names.length) { alert('Выберите хотя бы один файл'); return; }
+    const res = await fetch('/api/generate/sales_products', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({files: names, ...getDateRange()}) });
+    if (!res.ok) { alert('Ошибка'); return; }
+    const result = await res.json();
+
+    const s = result.summary;
+    document.getElementById('summary').innerHTML = `
+        <div class="summary-card"><div class="label">Выручка</div><div class="value blue">${fmt(s.total_revenue)} ₽</div></div>
+        <div class="summary-card"><div class="label">Товаров</div><div class="value">${s.total_products}</div></div>
+        <div class="summary-card"><div class="label">Категория A</div><div class="value green">${s.count_a}</div></div>
+        <div class="summary-card"><div class="label">Категория B</div><div class="value" style="color:#eab308">${s.count_b}</div></div>
+        <div class="summary-card"><div class="label">Категория C</div><div class="value red">${s.count_c}</div></div>
+        ${s.internal_count ? `<div class="summary-card"><div class="label">Внутр. (НДС)</div><div class="value">${fmt(s.internal_total)} ₽</div></div>` : ''}
+    `;
+
+    document.getElementById('tableBody').innerHTML = result.data.map(d => `
+        <tr>
+            <td><strong>${d.product}</strong></td>
+            <td>${d.date || ''}</td>
+            <td>${d.manager || ''}</td>
+            <td>${d.territory || ''}</td>
+            <td><span class="badge badge-${d.category.toLowerCase()}">${d.category}</span></td>
+            <td>${fmt(d.revenue)} ₽</td>
+            <td>${d.share}%</td>
+            <td>${d.cum_share}%</td>
+        </tr>
+    `).join('');
+
+    if (chartAbcInst) chartAbcInst.destroy();
+    if (chartPieInst) chartPieInst.destroy();
+
+    if (result.chart.labels && result.chart.labels.length) {
+        chartAbcInst = new Chart(document.getElementById('chartAbc'), {
+            type: 'bar',
+            data: { labels: result.chart.labels, datasets: [{ label: 'Выручка', data: result.chart.values, backgroundColor: result.chart.colors }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+        });
+
+        const catSums = { A: 0, B: 0, C: 0 };
+        result.data.forEach(d => { catSums[d.category] += d.revenue; });
+        chartPieInst = new Chart(document.getElementById('chartPie'), {
+            type: 'doughnut',
+            data: { labels: Object.keys(catSums), datasets: [{ data: Object.values(catSums), backgroundColor: ['#16a34a', '#eab308', '#dc2626'] }] },
+            options: { responsive: true, maintainAspectRatio: false }
+        });
+    }
+
+    const internal = result.internal || [];
+    if (internal.length) {
+        document.getElementById('internalBody').innerHTML = internal.map(d => `
+            <tr>
+                <td><strong>${d.product || ''}</strong></td>
+                <td>${fmt(d['Сумма'] || 0)} ₽</td>
+                <td><span class="badge">${d['Пометка'] || ''}</span></td>
+            </tr>
+        `).join('');
+        document.getElementById('internalBlock').style.display = 'block';
+    }
+
+    if (result.filename) document.getElementById('downloadLink').href = '/api/download/' + result.filename;
+    document.getElementById('result').style.display = 'block';
+    showNoteBlock();
+}
+
+function fmt(n) { return new Intl.NumberFormat('ru-RU').format(n); }
+loadInbox();
+</script>
+{% endblock %}

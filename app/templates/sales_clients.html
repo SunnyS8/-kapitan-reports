@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+{% set active = "sales_clients" %}
+
+{% block title %}Продажи по клиентам — Kapitan Reports{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Продажи по клиентам</h1>
+    <p>Выручка, количество, средний чек по каждому клиенту</p>
+</div>
+
+<div class="card">
+    <h2 style="margin-bottom:8px;">Выбор выгрузок из 1С</h2>
+    <p class="muted" style="margin-bottom:12px;">Выберите исходники, загруженные в разделе «Выгрузка из 1С».</p>
+    <div id="inboxList" class="source-picker"></div>
+    <div class="inbox-toolbar"><label><input type="checkbox" id="selectAll" onchange="toggleAll(this.checked)"> Выбрать все</label></div>
+    <button type="button" class="btn btn-primary" style="margin-top:16px;" onclick="generateReport()"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7V5Z"/></svg> Сформировать отчёт</button>
+</div>
+
+<div id="errorBox" style="display:none;" class="card" style="border-left:4px solid #dc2626;">
+    <h3 style="color:#dc2626;margin-bottom:8px;">Ошибка</h3>
+    <pre id="errorText" style="white-space:pre-wrap;font-size:13px;color:#64748b;"></pre>
+</div>
+
+<div id="result" style="display:none;">
+    <div class="summary-row" id="summary"></div>
+    {% include "note.html" %}
+    <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <h2>Детализация по клиентам</h2>
+            <a id="downloadLink" class="btn btn-success" href="#"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg> Скачать Excel</a>
+        </div>
+        <div class="chart-container" style="margin-bottom:20px;">
+            <canvas id="chart"></canvas>
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Клиент</th><th>Дата</th>
+                        <th>Менеджер</th>
+                        <th>Территория</th>
+                        <th>Выручка</th>
+                        <th>Кол-во продаж</th>
+                        <th>Средний чек</th>
+                        <th>Доля, %</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
+        <div id="internalBlock" style="display:none;margin-top:24px;">
+            <h2>Внутренние контрагенты (НДС)</h2>
+            <p style="font-size:13px;color:#666;margin:0 0 12px;">Выводятся отдельно и не входят в общие результаты.</p>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Клиент</th><th>Дата</th>
+                            <th>Выручка</th>
+                            <th>Кол-во продаж</th>
+                            <th>Средний чек</th>
+                            <th>Пометка</th>
+                        </tr>
+                    </thead>
+                    <tbody id="internalBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let chartInstance = null;
+
+function showError(msg) {
+    document.getElementById('errorBox').style.display = 'block';
+    document.getElementById('errorText').textContent = msg;
+}
+
+function hideError() {
+    document.getElementById('errorBox').style.display = 'none';
+}
+
+async function generateReport() {
+    hideError();
+    const names = selectedFiles();
+    if (!names.length) { alert('Выберите хотя бы один файл'); return; }
+
+    const res = await fetch('/api/generate/sales_clients', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({files: names, ...getDateRange()}) });
+    const result = await res.json();
+
+    if (res.status !== 200) {
+        showError(result.detail || JSON.stringify(result));
+        return;
+    }
+
+    const s = result.summary || {};
+    if (s.error) {
+        showError(s.error + (s.debug ? '\n\nDebug: ' + JSON.stringify(s.debug, null, 2) : ''));
+        return;
+    }
+
+    document.getElementById('result').style.display = 'block';
+    showNoteBlock();
+    document.getElementById('summary').innerHTML = `
+        <div class="summary-card"><div class="label">Выручка</div><div class="value blue">${fmt(s.total_revenue)} &#8381;</div></div>
+        <div class="summary-card"><div class="label">Клиентов</div><div class="value">${s.total_clients || 0}</div></div>
+        <div class="summary-card"><div class="label">Продаж</div><div class="value">${s.total_sales || 0}</div></div>
+        <div class="summary-card"><div class="label">Средний чек</div><div class="value green">${fmt(s.avg_check)} &#8381;</div></div>
+        ${s.internal_count ? `<div class="summary-card"><div class="label">Внутр. (НДС)</div><div class="value">${fmt(s.internal_total)} &#8381;</div></div>` : ''}
+    `;
+
+    const tbody = document.getElementById('tableBody');
+    if (!result.data || result.data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#64748b;">Нет данных для отображения</td></tr>';
+    } else {
+        tbody.innerHTML = result.data.map(d => `
+            <tr>
+                <td><strong>${d.client}</strong></td>
+                <td>${d.date || ''}</td>
+                <td>${d.manager || ''}</td>
+                <td>${d.territory || ''}</td>
+                <td>${fmt(d.revenue)} &#8381;</td>
+                <td>${d.sales_count}</td>
+                <td>${fmt(d.avg_check)} &#8381;</td>
+                <td>${d.share}%</td>
+            </tr>
+        `).join('');
+    }
+
+    const internal = result.internal || [];
+    if (internal.length) {
+        document.getElementById('internalBody').innerHTML = internal.map(d => `
+            <tr>
+                <td><strong>${d.client || ''}</strong></td>
+                <td>${fmt(d.revenue)} &#8381;</td>
+                <td>${d.sales_count}</td>
+                <td>${fmt(d.avg_check)} &#8381;</td>
+                <td><span class="badge">${d['Пометка'] || ''}</span></td>
+            </tr>
+        `).join('');
+        document.getElementById('internalBlock').style.display = 'block';
+    }
+
+    if (chartInstance) chartInstance.destroy();
+    if (result.chart && result.chart.labels && result.chart.labels.length) {
+        chartInstance = new Chart(document.getElementById('chart'), {
+            type: 'bar',
+            data: { labels: result.chart.labels, datasets: [{ label: 'Выручка', data: result.chart.values, backgroundColor: '#3b82f6' }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+        });
+    }
+
+    if (result.filename) {
+        document.getElementById('downloadLink').href = '/api/download/' + result.filename;
+    }
+}
+
+function fmt(n) { return n != null ? new Intl.NumberFormat('ru-RU').format(n) : '—'; }
+loadInbox();
+</script>
+{% endblock %}

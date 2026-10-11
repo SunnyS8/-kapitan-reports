@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+{% set active = "pvh" %}
+
+{% block title %}Плёнка ПВХ — Kapitan Reports{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Плёнка ПВХ</h1>
+    <p>Цены, количество, площади по сериям и ширинам</p>
+</div>
+
+<div class="card">
+    <h2 style="margin-bottom:8px;">Выбор выгрузок из 1С</h2>
+    <p class="muted" style="margin-bottom:12px;">Выберите исходники, загруженные в разделе «Выгрузка из 1С».</p>
+    <div id="inboxList" class="source-picker"></div>
+    <div class="inbox-toolbar"><label><input type="checkbox" id="selectAll" onchange="toggleAll(this.checked)"> Выбрать все</label></div>
+    <button type="button" class="btn btn-primary" style="margin-top:16px;" onclick="generateReport()"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7V5Z"/></svg> Сформировать отчёт</button>
+</div>
+
+<div id="errorBox" style="display:none; border-left:4px solid #dc2626;" class="card">
+    <h3 style="color:#dc2626;margin-bottom:8px;">Ошибка</h3>
+    <pre id="errorText" style="white-space:pre-wrap;font-size:13px;color:#64748b;"></pre>
+</div>
+
+<div id="result" style="display:none;">
+    <div class="summary-row" id="summary"></div>
+    {% include "note.html" %}
+    <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <h2>По сериям</h2>
+            <a id="downloadLink" class="btn btn-success" href="#"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg> Скачать Excel</a>
+        </div>
+        <div class="chart-container" style="margin-bottom:20px;">
+            <canvas id="chart"></canvas>
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Серия</th>
+                        <th>Номенклатура</th>
+                        <th>Ширина, м</th>
+                        <th>Дата</th>
+                        <th>Цена</th>
+                        <th>Кол-во</th>
+                        <th>Площадь, м²</th>
+                        <th>Сумма</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
+    </div>
+    <div class="card" id="widthCard" style="display:none;margin-top:24px;">
+        <h2>По ширинам</h2>
+        <div class="chart-container" style="margin-bottom:20px;">
+            <canvas id="chartWidth"></canvas>
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Ширина, м</th>
+                        <th>Сумма</th>
+                        <th>Кол-во</th>
+                        <th>Товаров</th>
+                    </tr>
+                </thead>
+                <tbody id="widthBody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let chartInstance = null;
+let chartWidthInstance = null;
+
+function showError(msg) {
+    document.getElementById('errorBox').style.display = 'block';
+    document.getElementById('errorText').textContent = msg;
+}
+
+function hideError() {
+    document.getElementById('errorBox').style.display = 'none';
+}
+
+function fmt(n) { return n != null ? new Intl.NumberFormat('ru-RU').format(n) : '—'; }
+
+async function generateReport() {
+    hideError();
+    const names = selectedFiles();
+    if (!names.length) { alert('Выберите хотя бы один файл'); return; }
+
+    const res = await fetch('/api/generate/pvh', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({files: names, ...getDateRange()}) });
+    const result = await res.json();
+
+    if (res.status !== 200) {
+        showError(result.detail || JSON.stringify(result));
+        return;
+    }
+
+    const s = result.summary || {};
+    if (s.error) {
+        showError(s.error + (s.debug ? '\n\nDebug: ' + JSON.stringify(s.debug, null, 2) : ''));
+        return;
+    }
+
+    document.getElementById('result').style.display = 'block';
+    showNoteBlock();
+
+    document.getElementById('summary').innerHTML = `
+        <div class="summary-card"><div class="label">Сумма</div><div class="value blue">${fmt(s.total_value)} &#8381;</div></div>
+        <div class="summary-card"><div class="label">Кол-во</div><div class="value">${fmt(s.total_quantity)}</div></div>
+        <div class="summary-card"><div class="label">Площадь</div><div class="value green">${fmt(s.total_area)} м²</div></div>
+        <div class="summary-card"><div class="label">Ср. цена</div><div class="value">${fmt(s.avg_price)} &#8381;</div></div>
+        <div class="summary-card"><div class="label">Товаров</div><div class="value">${s.total_products || 0}</div></div>
+        <div class="summary-card"><div class="label">Серий</div><div class="value">${s.series_count || 0}</div></div>
+    `;
+
+    const tbody = document.getElementById('tableBody');
+    if (!result.data || result.data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#64748b;">Нет данных для отображения</td></tr>';
+    } else {
+        tbody.innerHTML = result.data.map(d => `
+            <tr>
+                <td><strong>${d.series || ''}</strong></td>
+                <td>${d.product || ''}</td>
+                <td>${d.width != null ? d.width : '—'}</td>
+                <td>${d.date || ''}</td>
+                <td>${fmt(d.price)}</td>
+                <td>${d.quantity}</td>
+                <td>${fmt(d.area)}</td>
+                <td>${fmt(d.total)}</td>
+            </tr>
+        `).join('');
+    }
+
+    if (result.chart && result.chart.labels && result.chart.labels.length) {
+        if (chartInstance) chartInstance.destroy();
+        chartInstance = new Chart(document.getElementById('chart'), {
+            type: 'bar',
+            data: { labels: result.chart.labels, datasets: [{ label: 'Сумма, ₽', data: result.chart.values, backgroundColor: '#3b82f6' }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+        });
+    }
+
+    const widthData = result.chart.width_data || {};
+    const widthCard = document.getElementById('widthCard');
+    if (Object.keys(widthData).length) {
+        widthCard.style.display = 'block';
+        if (chartWidthInstance) chartWidthInstance.destroy();
+        chartWidthInstance = new Chart(document.getElementById('chartWidth'), {
+            type: 'bar',
+            data: {
+                labels: Object.keys(widthData),
+                datasets: [
+                    { label: 'Сумма, ₽', data: Object.values(widthData).map(v => v.total), backgroundColor: '#10b981' },
+                    { label: 'Кол-во', data: Object.values(widthData).map(v => v.quantity), backgroundColor: '#f59e0b' },
+                ]
+            },
+            options: { responsive: true, maintainAspectRatio: false }
+        });
+        document.getElementById('widthBody').innerHTML = Object.entries(widthData).map(([w, v]) => `
+            <tr>
+                <td><strong>${w}</strong></td>
+                <td>${fmt(v.total)}</td>
+                <td>${fmt(v.quantity)}</td>
+                <td>${v.count}</td>
+            </tr>
+        `).join('');
+    } else {
+        widthCard.style.display = 'none';
+    }
+
+    if (result.filename) {
+        document.getElementById('downloadLink').href = '/api/download/' + result.filename;
+    }
+}
+
+loadInbox();
+</script>
+{% endblock %}

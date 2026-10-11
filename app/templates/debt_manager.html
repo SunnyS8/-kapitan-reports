@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% set active = "debt_manager" %}
+
+{% block title %}Задолженность клиента — Kapitan Reports{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Задолженность клиента</h1>
+    <p>Долги по клиентам и менеджерам, разбитые по срокам («как у Сергея»)</p>
+</div>
+
+<div class="card">
+    <h2 style="margin-bottom:16px;">Выбор выгрузок из 1С</h2>
+    <p style="font-size:13px;color:#666;margin:0 0 12px;">Выберите файлы счетов из папки <strong>inbox</strong> проекта Kapitan Reports. Справочники хранятся в подпапке <strong>inbox/Справочники</strong>.</p>
+    <div id="inboxList" style="max-height:240px;overflow:auto;border:1px solid var(--border,#e2e8f0);border-radius:8px;padding:8px;"></div>
+    <div style="margin-top:12px;font-size:13px;">
+        <label><input type="checkbox" id="selectAll" onchange="toggleAll(this.checked)"> Выбрать все</label>
+    </div>
+    <div style="margin-top:16px;">
+        <button type="button" class="btn btn-primary" onclick="generateReport()"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7V5Z"/></svg> Сформировать отчёт</button>
+    </div>
+</div>
+
+<div id="result" style="display:none;">
+    <div class="summary-row" id="summary"></div>
+    {% include "note.html" %}
+    <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <h2>Задолженность по бакетам</h2>
+            <a id="downloadLink" class="btn btn-success" href="#"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg> Скачать Excel</a>
+        </div>
+        <div class="chart-container" style="margin-bottom:20px;">
+            <canvas id="chart"></canvas>
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Менеджер</th><th>Дата</th>
+                        <th>Клиент</th>
+                        <th>Территория</th>
+                        <th>Организация</th>
+                        <th>Отсрочка, дн</th>
+                        <th>Общий долг</th>
+                        <th>Долг 1-10</th>
+                        <th>Долг 11-15</th>
+                        <th>Долг 16-29</th>
+                        <th>Долг свыше 30</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let chartInst = null;
+
+async function generateReport() {
+    const names = selectedFiles();
+    if (!names.length) { alert('Выберите хотя бы один файл'); return; }
+    const res = await fetch('/api/generate/debt_manager', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({files: names, ...getDateRange()})
+    });
+    if (!res.ok) { let m='Ошибка'; try { const j=await res.json(); m=j.detail||m; } catch(e){} alert(m); return; }
+    const result = await res.json();
+
+    const s = result.summary;
+    document.getElementById('summary').innerHTML = `
+        <div class="summary-card"><div class="label">Общий долг</div><div class="value blue">${fmt(s.total_debt)}</div></div>
+        <div class="summary-card"><div class="label">1-10 дн</div><div class="value">${fmt(s.bucket_1_10)}</div></div>
+        <div class="summary-card"><div class="label">11-15 дн</div><div class="value">${fmt(s.bucket_11_15)}</div></div>
+        <div class="summary-card"><div class="label">16-29 дн</div><div class="value">${fmt(s.bucket_16_29)}</div></div>
+        <div class="summary-card"><div class="label">свыше 30</div><div class="value danger">${fmt(s.bucket_over_30)}</div></div>
+        <div class="summary-card"><div class="label">Клиентов</div><div class="value">${s.clients}</div></div>
+    `;
+
+    document.getElementById('tableBody').innerHTML = result.data.map(d => `
+        <tr>
+            <td>${d['Менеджер'] || ''}</td>
+            <td><strong>${d['Клиент'] || ''}</strong></td>
+            <td>${d.territory || ''}</td>
+            <td>${d.date || ''}</td>
+            <td>${d['Организация'] || ''}</td>
+            <td>${d['Отсрочка, дн'] || 0}</td>
+            <td><strong>${fmt(d['Общий долг'])}</strong></td>
+            <td>${fmt(d['Долг 1-10'])}</td>
+            <td>${fmt(d['Долг 11-15'])}</td>
+            <td>${fmt(d['Долг 16-29'])}</td>
+            <td>${fmt(d['Долг свыше 30'])}</td>
+        </tr>
+    `).join('');
+
+    if (chartInst) chartInst.destroy();
+    if (result.chart.labels && result.chart.labels.length) {
+        chartInst = new Chart(document.getElementById('chart'), {
+            type: 'bar',
+            data: { labels: result.chart.labels, datasets: [{ label: 'Долг', data: result.chart.values, backgroundColor: '#ef4444' }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+        });
+    }
+
+    if (result.filename) document.getElementById('downloadLink').href = '/api/download/' + result.filename;
+    document.getElementById('result').style.display = 'block';
+    showNoteBlock();
+}
+
+function fmt(n) { return new Intl.NumberFormat('ru-RU').format(n); }
+
+loadInbox();
+</script>
+{% endblock %}

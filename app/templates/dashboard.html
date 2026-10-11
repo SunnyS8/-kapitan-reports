@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% set active = "dashboard" %}
+
+{% block title %}Kapitan Reports — Все отчёты{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <span class="eyebrow">Центр управления</span>
+        <h1>Добро пожаловать в Kapitan Reports</h1>
+        <p>Соберите картину продаж, склада и финансов в одном рабочем пространстве.</p>
+    </div>
+    <a class="btn btn-primary page-header-action" href="/inbox"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg> Загрузить выгрузку</a>
+</div>
+
+<div class="dashboard-intro">
+    <div>
+        <span class="eyebrow eyebrow-light">Рабочий цикл</span>
+        <h2>От выгрузки 1С<br>до решения руководителя</h2>
+        <p>Загрузите исходники, выберите нужный срез и сформируйте отчёт с готовой аналитической запиской.</p>
+    </div>
+    <div class="intro-steps">
+        <div class="intro-step"><b>01</b><span>Выгрузка<br>из 1С</span></div>
+        <div class="intro-line"></div>
+        <div class="intro-step"><b>02</b><span>Срез<br>данных</span></div>
+        <div class="intro-line"></div>
+        <div class="intro-step"><b>03</b><span>Решение<br>по цифрам</span></div>
+    </div>
+</div>
+
+<div class="section-heading dashboard-section-heading">
+    <div><span class="eyebrow">Библиотека аналитики</span><h2>Все отчёты</h2></div>
+    <span class="report-count">{{ reports|length }} инструментов</span>
+</div>
+<div class="card-grid">
+    {% for r in reports %}
+    <a href="/report/{{ r.key }}" class="report-card">
+        <div class="report-card-top"><div class="icon">
+            {% if r.key in ["sales_clients", "clients", "top_clients"] %}<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0M16 8h5M18.5 5.5v5"/></svg>
+            {% elif r.key in ["sales_products", "inventory", "nelikvid"] %}<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m4 7 8-4 8 4-8 4-8-4Zm0 5 8 4 8-4M4 17l8 4 8-4"/></svg>
+            {% elif r.key in ["dynamics", "stock_dynamics"] %}<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16 5-5 4 3 7-8M15 6h5v5"/></svg>
+            {% elif r.key == "forecast" %}<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5m0 14h16M8 15l3-4 3 2 4-6"/></svg>
+            {% elif r.key in ["debt", "debt_manager"] %}<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M8 9h8M8 13h5"/></svg>
+            {% elif r.key == "edo" %}<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l3 3v15H6zM15 3v4h4M9 12h6M9 16h4"/></svg>
+            {% else %}<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5m0 14h16M7 15l3-4 3 2 4-6"/></svg>{% endif %}
+        </div><span class="card-arrow"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></span></div>
+        <h3>{{ r.name }}</h3>
+        <p>
+            {% if r.key == "sales_clients" %}Выручка, кол-во, средний чек по клиентам
+            {% elif r.key == "sales_products" %}ABC-анализ, топ товары, доля в портфеле
+            {% elif r.key == "inventory" %}Текущие остатки, движение по складам
+            {% elif r.key == "stock_dynamics" %}Движение номенклатуры: приход, остатки, резерв
+            {% elif r.key == "dynamics" %}Сравнение периодов, % изменения, тренд
+            {% elif r.key == "forecast" %}Факт vs план, % выполнения
+            {% elif r.key == "debt" %}Дебиторка, просрочка по счетам
+            {% elif r.key == "debt_manager" %}Долги по клиентам и менеджерам по срокам
+            {% elif r.key == "clients" %}Менеджеры, города, адреса, телефоны клиентов
+            {% elif r.key == "edo" %}Незавершённые документы электронного обмена
+            {% elif r.key == "nelikvid" %}Медленно продающиеся товары, формула расчёта
+            {% endif %}
+        </p>
+    </a>
+    {% endfor %}
+</div>
+{% endblock %}
