@@ -71,7 +71,7 @@ def _period_start_sort(period: str) -> tuple:
 
 def generate_stock_dynamics(filepaths: list[Path], date_from: Optional[str] = None, date_to: Optional[str] = None) -> dict:
     """Динамика движения по складам: сводка по складам, по периодам, детали."""
-    from app.services.excel_parser import read_stock_excel, _filter_by_date
+    from app.services.excel_parser import read_stock_excel, _filter_by_date, _add_date_to_data
 
     file_frames: list[tuple[pd.DataFrame, dict]] = []
     debug_all = []

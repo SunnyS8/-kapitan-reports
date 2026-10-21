@@ -4,6 +4,8 @@ from typing import Optional
 import re
 from pathlib import Path
 
+from app.services.excel_parser import _find_header_row, _filter_by_date
+
 
 def parse_length_width(characteristic: str) -> tuple[float, float]:
     """
@@ -85,11 +87,7 @@ def generate_nelikvid(filepaths: list[Path], threshold_days: int = 180, date_fro
 
         # Парсинг остатков
         try:
-            from app.services.excel_parser import find_header_row, HEADER_KEYWORDS, _filter_by_date
-            all_kws = []
-            for kws in HEADER_KEYWORDS.values():
-                all_kws.extend(kws)
-            header_row = find_header_row(stock_df, all_kws)
+            header_row = _find_header_row(stock_df)
 
             if header_row is not None:
                 headers = [str(stock_df.iloc[header_row, i]) for i in range(len(stock_df.columns))]

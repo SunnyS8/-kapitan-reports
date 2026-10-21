@@ -11,7 +11,7 @@ from app.services.excel_parser import _add_date_to_data
 TOP_N = 50
 
 
-def _load_sales(filepaths: list[Path]) -> tuple[pd.DataFrame, list]:
+def _load_sales(filepaths: list[Path], date_from: Optional[str] = None, date_to: Optional[str] = None) -> tuple[pd.DataFrame, list]:
     from app.services.excel_parser import read_sales_excel
 
     frames = []
@@ -42,7 +42,7 @@ def _round(v) -> float:
 
 def generate_top_products(filepaths: list[Path], date_from: Optional[str] = None, date_to: Optional[str] = None) -> dict:
     """3.1 Топ продаж по номенклатуре: Номенклатура | Количество | Сумма."""
-    df, debug_all = _load_sales(filepaths)
+    df, debug_all = _load_sales(filepaths, date_from, date_to)
 
     if "product" not in df.columns:
         return {"summary": {"error": "Колонка 'Номенклатура' не найдена", "debug": debug_all}, "data": [], "chart": {}}
@@ -109,7 +109,7 @@ def generate_top_clients(filepaths: list[Path], date_from: Optional[str] = None,
     Внутренние контрагенты (для НДС) выводятся отдельной строкой с пометкой
     и не учитываются в общих результатах (общая выручка, топ, диаграмма).
     """
-    df, debug_all = _load_sales(filepaths)
+    df, debug_all = _load_sales(filepaths, date_from, date_to)
 
     period = compute_date_period(df)
 

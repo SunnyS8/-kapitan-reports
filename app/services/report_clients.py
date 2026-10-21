@@ -7,7 +7,7 @@ from datetime import datetime
 
 def generate_clients(filepaths: list[Path], date_from: Optional[str] = None, date_to: Optional[str] = None) -> dict:
     """Реестр клиентов: Менеджер | Клиент | Город | Адрес | Телефон | Плательщик."""
-    from app.services.excel_parser import read_clients_excel, _filter_by_date
+    from app.services.excel_parser import read_clients_excel, _filter_by_date, _add_date_to_data
 
     frames = []
     debug_all = []

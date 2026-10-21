@@ -3,6 +3,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 from pathlib import Path
 from typing import Optional
+import pandas as pd
 import shutil
 import uuid
 import asyncio

@@ -6,7 +6,7 @@ from datetime import datetime
 
 
 def generate_debt(filepaths: list[Path], date_from: Optional[str] = None, date_to: Optional[str] = None) -> dict:
-    from app.services.excel_parser import read_invoice_excel, _filter_by_date
+    from app.services.excel_parser import read_invoice_excel, _filter_by_date, _add_date_to_data
 
     frames = []
     debug_all = []

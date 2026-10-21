@@ -5,7 +5,7 @@ from pathlib import Path
 
 
 def generate_inventory(filepaths: list[Path], threshold_days: int = 90, date_from: Optional[str] = None, date_to: Optional[str] = None) -> dict:
-    from app.services.excel_parser import read_stock_excel, _filter_by_date
+    from app.services.excel_parser import read_stock_excel, _filter_by_date, _add_date_to_data
 
     frames = []
     debug_all = []

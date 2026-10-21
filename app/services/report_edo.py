@@ -19,7 +19,7 @@ def _num(v, default: float = 0.0) -> float:
 def generate_edo(filepaths: list[Path], date_from: Optional[str] = None, date_to: Optional[str] = None) -> dict:
     """Реестр незавершённых ЭДО: Клиент | Адрес | Номер накладной | Сумма |
     Состояние | Остановлен."""
-    from app.services.excel_parser import read_edo_excel, _filter_by_date
+    from app.services.excel_parser import read_edo_excel, _filter_by_date, _add_date_to_data
 
     frames = []
     debug_all = []

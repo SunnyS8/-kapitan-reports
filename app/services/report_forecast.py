@@ -24,7 +24,16 @@ def generate_forecast(filepaths: list[Path], date_from: Optional[str] = None, da
             elif "fact" in df.columns and fact_df is None:
                 fact_df = df
             elif fact_df is None:
-                fact_df = df
+                if "client" in df.columns and "sum" in df.columns:
+                    fact_df = df
+                else:
+                    # Файл не распознан как план с фактом — пробуем как выгрузку продаж
+                    try:
+                        sdf, sdebug = read_sales_excel(fp)
+                        debug_all.append(sdebug)
+                        fact_df = sdf
+                    except Exception:
+                        fact_df = df
         except Exception:
             try:
                 df, debug = read_sales_excel(fp)
@@ -40,9 +49,9 @@ def generate_forecast(filepaths: list[Path], date_from: Optional[str] = None, da
     # Territory and Manager mapping from fact_df
     city_map = {}
     manager_map = {}
-    if "city" in fact_df.columns:
+    if "city" in fact_df.columns and "client" in fact_df.columns:
         city_map = fact_df.groupby("client", dropna=False)["city"].agg(lambda x: next((v for v in x if pd.notna(v) and str(v).strip() and str(v).lower() not in ("nan", "none", "")), ""))
-    if "manager" in fact_df.columns:
+    if "manager" in fact_df.columns and "client" in fact_df.columns:
         manager_map = fact_df.groupby("client", dropna=False)["manager"].agg(lambda x: next((v for v in x if pd.notna(v) and str(v).strip() and str(v).lower() not in ("nan", "none", "")), ""))
 
     # Внутренние контрагенты (для НДС) — отдельным блоком, из факта исключаются.

@@ -21,7 +21,7 @@ def generate_debt_manager(filepaths: list[Path], date_from: Optional[str] = None
     """Задолженность по менеджерам/клиентам.
     Формат «как у Сергея»: Менеджер | Клиент | Организация | Отсрочка |
     Общий долг | Долг 1-10 | 11-15 | 16-29 | свыше 30."""
-    from app.services.excel_parser import read_invoice_excel, _filter_by_date
+    from app.services.excel_parser import read_invoice_excel, _filter_by_date, _add_date_to_data
 
     frames = []
     debug_all = []
